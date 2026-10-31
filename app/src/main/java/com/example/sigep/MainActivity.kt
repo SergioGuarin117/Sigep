@@ -68,16 +68,24 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AplicacionSIGEP() {
     var mostrarRegistro by remember { mutableStateOf(false) }
+    var sesionIniciada by remember { mutableStateOf(false) }
 
-    if (mostrarRegistro) {
-        PantallaRegistro(onVolver = { mostrarRegistro = false })
-    } else {
-        PantallaLogin(onCrearCuenta = { mostrarRegistro = true })
+    when {
+        sesionIniciada -> PantallaPrincipal()
+
+        mostrarRegistro -> PantallaRegistro(
+            onVolver = { mostrarRegistro = false }
+        )
+
+        else -> PantallaLogin(
+            onCrearCuenta = { mostrarRegistro = true },
+            onLoginExitoso = { sesionIniciada = true }
+        )
     }
 }
 
 @Composable
-fun PantallaLogin(onCrearCuenta: () -> Unit) {
+fun PantallaLogin(onCrearCuenta: () -> Unit, onLoginExitoso: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var correo by remember { mutableStateOf("") }
@@ -195,11 +203,38 @@ fun PantallaLogin(onCrearCuenta: () -> Unit) {
                         }
 
                         else -> {
-                            Toast.makeText(
-                                context,
-                                "Campos completos. El acceso se conectará más adelante",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            scope.launch {
+                                try {
+                                    val respuesta = RetrofitClient.authApi.iniciarSesion(
+                                        AuthRequest(
+                                            correo = correo.trim(),
+                                            contrasena = contrasena
+                                        )
+                                    )
+
+                                    if (respuesta.isSuccessful) {
+                                        onLoginExitoso()
+                                    } else if (respuesta.code() == 401) {
+                                        Toast.makeText(
+                                            context,
+                                            "Correo o contraseña incorrectos",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "No se pudo iniciar sesión. Código: ${respuesta.code()}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        "No se pudo conectar con el servidor",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
                         }
                     }
                 },
