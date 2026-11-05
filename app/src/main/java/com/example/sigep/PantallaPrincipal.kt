@@ -1,484 +1,194 @@
 package com.example.sigep
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.OutlinedTextField
+import kotlinx.coroutines.delay
 
-private val pestañas = listOf(
-    "Inicio" to "⌂",
-    "Alertas" to "⚠",
-    "Casos" to "＋",
-    "Equipos" to "♙",
-    "Reportes" to "▥"
-)
+enum class Pestana(val etiqueta: String, val icono: ImageVector) {
+    INICIO("Inicio", Icons.Filled.Home),
+    ALERTAS("Alertas", Icons.Filled.Warning),
+    CASOS("Casos", Icons.Filled.Person),
+    EQUIPOS("Equipos", Icons.Filled.AccountBox),
+    REPORTES("Reportes", Icons.AutoMirrored.Filled.List)
+}
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Sub-pantallas dentro de la pestaña "Casos". */
+sealed interface RutaCasos {
+    data object Lista : RutaCasos
+    data object Registro : RutaCasos
+    data class Condicion(val pacienteId: Long, val esNuevo: Boolean) : RutaCasos
+    data class Detalle(val pacienteId: Long) : RutaCasos
+}
+
 @Composable
-fun PantallaPrincipal() {
-    var pestañaSeleccionada by remember { mutableStateOf("Inicio") }
+fun PantallaPrincipal(nombreUsuario: String, onCerrarSesion: () -> Unit) {
+    val contexto = LocalContext.current
+    val repo = remember { RepositorioSigep(contexto.applicationContext) }
+    val borrador = remember { BorradorPaciente() }
+
+    var pestana by rememberSaveable { mutableStateOf(Pestana.INICIO) }
+    var ruta by remember { mutableStateOf<RutaCasos>(RutaCasos.Lista) }
+    var vistaCasos by rememberSaveable { mutableIntStateOf(0) }
+    var mensaje by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(mensaje) {
+        if (mensaje != null) {
+            delay(4000)
+            mensaje = null
+        }
+    }
+
+    fun irARegistro() {
+        pestana = Pestana.CASOS
+        vistaCasos = 0
+        ruta = RutaCasos.Registro
+    }
+
+    fun abrirPaciente(id: Long) {
+        pestana = Pestana.CASOS
+        ruta = RutaCasos.Detalle(id)
+    }
+
+    fun volverCasos() {
+        when (val actual = ruta) {
+            is RutaCasos.Registro -> {
+                if (borrador.paso > 1) {
+                    borrador.paso -= 1
+                } else {
+                    borrador.limpiar()
+                    ruta = RutaCasos.Lista
+                }
+            }
+            is RutaCasos.Condicion -> {
+                if (actual.esNuevo) {
+                    repo.pacientePorId(actual.pacienteId)?.let {
+                        mensaje = "${it.nombreCompleto} quedó registrado. La condición está pendiente."
+                    }
+                    ruta = RutaCasos.Lista
+                } else {
+                    ruta = RutaCasos.Detalle(actual.pacienteId)
+                }
+            }
+            is RutaCasos.Detalle -> ruta = RutaCasos.Lista
+            is RutaCasos.Lista -> Unit
+        }
+    }
+
+    BackHandler(enabled = pestana == Pestana.CASOS && ruta !is RutaCasos.Lista) { volverCasos() }
+
+    val enSubPantalla = pestana == Pestana.CASOS && ruta !is RutaCasos.Lista
+    val titulo = if (pestana == Pestana.CASOS) {
+        when (ruta) {
+            is RutaCasos.Lista -> "Casos"
+            is RutaCasos.Registro -> "Registro"
+            is RutaCasos.Condicion -> "Condición"
+            is RutaCasos.Detalle -> "Paciente"
+        }
+    } else {
+        pestana.etiqueta
+    }
+
+    val tecladoVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val alertasActivas = repo.alertas.count { it.estado != EstadoAlerta.RESUELTA }
 
     Scaffold(
+        modifier = Modifier.imePadding(),
+        containerColor = FondoApp,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = pestañaSeleccionada,
-                        color = Color.White
-                    )
-                },
-                actions = {
-                    Text("🔔", modifier = Modifier.padding(end = 16.dp))
-                    Text("⚙", modifier = Modifier.padding(end = 16.dp))
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AzulSigep
-                )
+            Encabezado(
+                titulo = titulo,
+                alertasActivas = alertasActivas,
+                onAtras = if (enSubPantalla) ({ volverCasos() }) else null,
+                onCampana = { pestana = Pestana.ALERTAS },
+                onCerrarSesion = onCerrarSesion
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                pestañas.forEach { (nombre, símbolo) ->
-                    NavigationBarItem(
-                        selected = pestañaSeleccionada == nombre,
-                        onClick = { pestañaSeleccionada = nombre },
-                        icon = { Text(text = símbolo, fontSize = 20.sp) },
-                        label = { Text(text = nombre) }
-                    )
-                }
-            }
-        },
-        containerColor = Color(0xFFF3F5F9)
-    ) { espacioDisponible ->
-        when (pestañaSeleccionada) {
-            "Inicio" -> ContenidoInicio(
-                modifier = Modifier.padding(espacioDisponible)
-            )
-            "Alertas" -> ContenidoAlertas(
-            modifier = Modifier.padding(espacioDisponible)
-            )
-            "Casos" -> ContenidoCasos(
-                modifier = Modifier.padding(espacioDisponible)
-            )
-           // "Equipos" -> ContenidoEquipos(
-            //    modifier = Modifier.padding(espacioDisponible)
-            //)
-
-            else -> ContenidoPendiente(
-                nombre = pestañaSeleccionada,
-                modifier = Modifier.padding(espacioDisponible)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ContenidoInicio(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = "📍  San Miguel · Inundación",
-            color = AzulSigep,
-            style = MaterialTheme.typography.titleSmall
-        )
-
-        Text(
-            text = "Centro de coordinación · Resumen de las últimas 24 h",
-            color = Color.Gray,
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Text(
-            text = "Resumen de situación",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TarjetaResumen(
-                valor = "38",
-                título = "Casos activos",
-                modifier = Modifier.weight(1f)
-            )
-            TarjetaResumen(
-                valor = "6",
-                título = "Alertas activas",
-                modifier = Modifier.weight(1f)
-            )
-            TarjetaResumen(
-                valor = "6/8",
-                título = "Equipos en campo",
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Text(
-            text = "Atención prioritaria",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "🔴  Crítica · Agua no segura para consumo",
-                    color = Color(0xFF9F2D35),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Albergue La Rivera · Hace 20 min",
-                    color = Color.Gray,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-
-        Text(
-            text = "Gestión de la respuesta",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TarjetaResumen(
-                valor = "Casos",
-                título = "Seguimiento",
-                modifier = Modifier.weight(1f)
-            )
-            TarjetaResumen(
-                valor = "Equipos",
-                título = "Despliegue",
-                modifier = Modifier.weight(1f)
-            )
-            TarjetaResumen(
-                valor = "Reportes",
-                título = "Balance diario",
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-@Composable
-private fun ContenidoAlertas(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = "📍  San Miguel · Inundación",
-            color = AzulSigep,
-            style = MaterialTheme.typography.titleSmall
-        )
-
-        Text(
-            text = "Riesgos detectados y seguimiento de la respuesta",
-            color = Color.Gray,
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TarjetaResumen("1", "Crítica", Modifier.weight(1f))
-            TarjetaResumen("3", "Altas", Modifier.weight(1f))
-            TarjetaResumen("3", "Moderadas", Modifier.weight(1f))
-        }
-
-        Text(
-            text = "Activas · 6                       Resueltas · 4",
-            color = Color.White,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(AzulSigep, RoundedCornerShape(8.dp))
-                .padding(12.dp)
-        )
-
-        TarjetaAlerta(
-            nivel = "Crítica",
-            título = "Agua no segura para consumo",
-            detalle = "Albergue La Rivera · Hace 20 min",
-            estado = "En intervención",
-            colorNivel = Color(0xFFC83D48)
-        )
-
-        TarjetaAlerta(
-            nivel = "Alta",
-            título = "Aumento de casos de diarrea",
-            detalle = "El Pinar · Hace 45 min",
-            estado = "En evaluación",
-            colorNivel = Color(0xFFE58B36)
-        )
-
-        TarjetaAlerta(
-            nivel = "Alta",
-            título = "Síntomas respiratorios agrupados",
-            detalle = "Las Flores · Hace 1 h",
-            estado = "En seguimiento",
-            colorNivel = Color(0xFFE58B36)
-        )
-    }
-}
-
-@Composable
-private fun TarjetaAlerta(
-    nivel: String,
-    título: String,
-    detalle: String,
-    estado: String,
-    colorNivel: Color
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(64.dp)
-                    .background(colorNivel, RoundedCornerShape(4.dp))
-            ) {}
-
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = nivel,
-                    color = colorNivel,
-                    style = MaterialTheme.typography.labelMedium
-                )
-                Text(
-                    text = título,
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = detalle,
-                    color = Color.Gray,
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    text = estado,
-                    color = AzulSigep,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        }
-    }
-}
-private data class CasoMuestra(
-    val codigo: String,
-    val sindrome: String,
-    val ubicacion: String,
-    val estado: String
-)
-
-@Composable
-private fun ContenidoCasos(modifier: Modifier = Modifier) {
-    var filtro by remember { mutableStateOf("") }
-
-    val casos = listOf(
-        CasoMuestra(
-            "C-054",
-            "Enfermedad diarreica aguda",
-            "El Pinar · 24 Jul, 08:20",
-            "Nuevo"
-        ),
-        CasoMuestra(
-            "C-063",
-            "Infección respiratoria",
-            "Las Flores · 24 Jul, 09:15",
-            "Seguimiento"
-        ),
-        CasoMuestra(
-            "C-071",
-            "Síndrome febril",
-            "La Rivera · 24 Jul, 10:30",
-            "Nuevo"
-        )
-    )
-
-    val casosVisibles = casos.filter { caso ->
-        caso.codigo.contains(filtro, ignoreCase = true) ||
-                caso.sindrome.contains(filtro, ignoreCase = true) ||
-                caso.ubicacion.contains(filtro, ignoreCase = true)
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = "📍  San Miguel · Inundación",
-            color = AzulSigep,
-            style = MaterialTheme.typography.titleSmall
-        )
-
-        Text(
-            text = "Vigilancia epidemiológica · Registros anonimizados",
-            color = Color.Gray,
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TarjetaResumen("38", "Activos", Modifier.weight(1f))
-            TarjetaResumen("22", "Nuevos · 24 h", Modifier.weight(1f))
-            TarjetaResumen("16", "Cerrados", Modifier.weight(1f))
-        }
-
-        OutlinedTextField(
-            value = filtro,
-            onValueChange = { filtro = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Buscar por código o síndrome") }
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Síndromes en vigilancia",
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text("Diarreico agudo                                      18")
-                Text("Respiratorio agudo                                12")
-                Text("Febril                                                    8")
-            }
-        }
-
-        Text(
-            text = "Registros recientes · ${casosVisibles.size} resultados",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        if (casosVisibles.isEmpty()) {
-            Text(
-                text = "No se encontraron casos con esa búsqueda.",
-                color = Color.Gray
-            )
-        } else {
-            casosVisibles.forEach { caso ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "${caso.codigo} · ${caso.sindrome}",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            text = caso.ubicacion,
-                            color = Color.Gray,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = caso.estado,
-                            color = AzulSigep,
-                            style = MaterialTheme.typography.labelMedium
+            if (!tecladoVisible) {
+                NavigationBar(containerColor = Color.White) {
+                    Pestana.entries.forEach { p ->
+                        NavigationBarItem(
+                            selected = pestana == p,
+                            onClick = {
+                                if (pestana == p && p == Pestana.CASOS) ruta = RutaCasos.Lista
+                                pestana = p
+                            },
+                            icon = { Icon(p.icono, contentDescription = p.etiqueta) },
+                            label = { Text(p.etiqueta, fontSize = 11.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = AzulSigep,
+                                selectedTextColor = AzulSigep,
+                                indicatorColor = AzulClaro,
+                                unselectedIconColor = TextoSuave,
+                                unselectedTextColor = TextoSuave
+                            )
                         )
                     }
                 }
             }
         }
-    }
-}
+    ) { espacio ->
+        Box(Modifier.padding(espacio).fillMaxSize()) {
+            when (pestana) {
+                Pestana.INICIO -> ContenidoInicio(
+                    repo = repo,
+                    nombreUsuario = nombreUsuario,
+                    onIrA = { destino ->
+                        if (destino == Pestana.CASOS) ruta = RutaCasos.Lista
+                        pestana = destino
+                    },
+                    onRegistrar = { irARegistro() },
+                    onAbrirPaciente = { abrirPaciente(it) }
+                )
 
-@Composable
-private fun TarjetaResumen(
-    valor: String,
-    título: String,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = valor,
-                color = AzulSigep,
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                text = título,
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall
-            )
+                Pestana.ALERTAS -> ContenidoAlertas(repo)
+
+                Pestana.CASOS -> PantallaCasos(
+                    repo = repo,
+                    ruta = ruta,
+                    onRuta = { ruta = it },
+                    borrador = borrador,
+                    vista = vistaCasos,
+                    onVista = { vistaCasos = it },
+                    mensaje = mensaje,
+                    onMensaje = { mensaje = it }
+                )
+
+                Pestana.EQUIPOS -> ContenidoEquipos(repo)
+
+                Pestana.REPORTES -> ContenidoReportes(repo)
+            }
         }
-    }
-}
-
-@Composable
-private fun ContenidoPendiente(
-    nombre: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFFF3F5F9))
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = nombre,
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Text(
-            text = "Esta sección se desarrollará en el siguiente paso.",
-            color = Color.Gray
-        )
     }
 }
