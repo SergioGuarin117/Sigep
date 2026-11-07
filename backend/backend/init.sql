@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS public.usuarios (
+    id BIGSERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    apellido VARCHAR(100) NOT NULL,
+    correo VARCHAR(255) NOT NULL UNIQUE,
+    contrasena_hash TEXT NOT NULL,
+    rol VARCHAR(30) NOT NULL DEFAULT 'usuario',
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
