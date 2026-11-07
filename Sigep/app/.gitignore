@@ -1,0 +1,13 @@
+# Android y Gradle
+.gradle/
+.idea/
+local.properties
+*.iml
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Secretos y dependencias de Node.js
+.env
+node_modules/
