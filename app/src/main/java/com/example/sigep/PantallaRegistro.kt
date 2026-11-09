@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.sp
 
 
 @Composable
-fun PantallaRegistro(onVolver: () -> Unit) {
+fun PantallaRegistro(onVolver: () -> Unit, onRegistroExitoso: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val permisoRedLocal = "android.permission.ACCESS_LOCAL_NETWORK"
@@ -171,7 +171,7 @@ fun PantallaRegistro(onVolver: () -> Unit) {
                                             respuesta.body()?.mensaje ?: "Cuenta creada correctamente",
                                             Toast.LENGTH_SHORT
                                         ).show()
-                                        onVolver()
+                                        onRegistroExitoso(nombre.trim())
                                     } else {
                                         Toast.makeText(
                                             context,
