@@ -18,6 +18,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.SIGEP"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|locale|layoutDirection"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

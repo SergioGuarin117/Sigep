@@ -22,6 +22,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
@@ -58,7 +60,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme {
+            MaterialTheme(
+                colorScheme = lightColorScheme(
+                    primary = AzulSigep,
+                    onPrimary = Color.White,
+                    secondary = AzulSigep,
+                    tertiary = AzulSigep
+                )
+            ) {
                 AplicacionSIGEP()
             }
         }
@@ -67,25 +76,41 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AplicacionSIGEP() {
-    var mostrarRegistro by remember { mutableStateOf(false) }
-    var sesionIniciada by remember { mutableStateOf(false) }
+    var mostrarRegistro by rememberSaveable { mutableStateOf(false) }
+    var sesionIniciada by rememberSaveable { mutableStateOf(false) }
+    var nombreUsuario by rememberSaveable { mutableStateOf("") }
 
     when {
-        sesionIniciada -> PantallaPrincipal()
+        sesionIniciada -> PantallaPrincipal(
+            nombreUsuario = nombreUsuario,
+            onCerrarSesion = {
+                sesionIniciada = false
+                mostrarRegistro = false
+                nombreUsuario = ""
+            }
+        )
 
         mostrarRegistro -> PantallaRegistro(
-            onVolver = { mostrarRegistro = false }
+            onVolver = { mostrarRegistro = false },
+            onRegistroExitoso = { nombre ->
+                nombreUsuario = nombre
+                mostrarRegistro = false
+                sesionIniciada = true
+            }
         )
 
         else -> PantallaLogin(
             onCrearCuenta = { mostrarRegistro = true },
-            onLoginExitoso = { sesionIniciada = true }
+            onLoginExitoso = { nombre ->
+                nombreUsuario = nombre
+                sesionIniciada = true
+            }
         )
     }
 }
 
 @Composable
-fun PantallaLogin(onCrearCuenta: () -> Unit, onLoginExitoso: () -> Unit) {
+fun PantallaLogin(onCrearCuenta: () -> Unit, onLoginExitoso: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var correo by remember { mutableStateOf("") }
@@ -213,7 +238,11 @@ fun PantallaLogin(onCrearCuenta: () -> Unit, onLoginExitoso: () -> Unit) {
                                     )
 
                                     if (respuesta.isSuccessful) {
-                                        onLoginExitoso()
+                                        val nombreApi = respuesta.body()?.usuario?.nombre
+                                        onLoginExitoso(
+                                            nombreApi?.takeIf { it.isNotBlank() }
+                                                ?: correo.trim().substringBefore("@")
+                                        )
                                     } else if (respuesta.code() == 401) {
                                         Toast.makeText(
                                             context,
