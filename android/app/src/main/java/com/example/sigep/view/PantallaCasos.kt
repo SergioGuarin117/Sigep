@@ -1,5 +1,7 @@
-package com.example.sigep
+package com.example.sigep.view
 
+import com.example.sigep.model.*
+import com.example.sigep.controller.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

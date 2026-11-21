@@ -1,4 +1,4 @@
-package com.example.sigep
+package com.example.sigep.model
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf

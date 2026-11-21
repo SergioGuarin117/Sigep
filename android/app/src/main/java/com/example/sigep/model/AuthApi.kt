@@ -1,4 +1,4 @@
-package com.example.sigep
+package com.example.sigep.model
 
 import retrofit2.Response
 import retrofit2.http.Body

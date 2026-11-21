@@ -1,5 +1,6 @@
-package com.example.sigep
+package com.example.sigep.view
 
+import com.example.sigep.model.*
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult

@@ -1,5 +1,7 @@
-package com.example.sigep
+package com.example.sigep.view
 
+import com.example.sigep.model.*
+import com.example.sigep.controller.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -34,22 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-
-enum class Pestana(val etiqueta: String, val icono: ImageVector) {
-    INICIO("Inicio", Icons.Filled.Home),
-    ALERTAS("Alertas", Icons.Filled.Warning),
-    CASOS("Casos", Icons.Filled.Person),
-    EQUIPOS("Equipos", Icons.Filled.AccountBox),
-    REPORTES("Reportes", Icons.AutoMirrored.Filled.List)
-}
-
-/** Sub-pantallas dentro de la pestaña "Casos". */
-sealed interface RutaCasos {
-    data object Lista : RutaCasos
-    data object Registro : RutaCasos
-    data class Condicion(val pacienteId: Long, val esNuevo: Boolean) : RutaCasos
-    data class Detalle(val pacienteId: Long) : RutaCasos
-}
 
 @Composable
 fun PantallaPrincipal(nombreUsuario: String, onCerrarSesion: () -> Unit) {

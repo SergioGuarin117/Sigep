@@ -1,4 +1,4 @@
-package com.example.sigep.ui.theme
+package com.example.sigep.view.theme
 
 import androidx.compose.ui.graphics.Color
 

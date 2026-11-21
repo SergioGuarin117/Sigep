@@ -1,4 +1,4 @@
-package com.example.sigep
+package com.example.sigep.model
 
 import androidx.compose.ui.graphics.Color
 

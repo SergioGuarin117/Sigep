@@ -1,5 +1,6 @@
-package com.example.sigep
+package com.example.sigep.view
 
+import com.example.sigep.model.*
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background

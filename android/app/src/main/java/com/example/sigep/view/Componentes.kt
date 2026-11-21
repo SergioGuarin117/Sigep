@@ -1,5 +1,6 @@
-package com.example.sigep
+package com.example.sigep.view
 
+import com.example.sigep.model.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
