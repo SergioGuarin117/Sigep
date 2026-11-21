@@ -1,6 +1,6 @@
 package com.example.sigep.view
 
-import com.example.sigep.model.*
+import com.example.sigep.controller.*
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -156,34 +156,30 @@ fun PantallaRegistro(onVolver: () -> Unit, onRegistroExitoso: (String) -> Unit) 
                             pedirPermisoRedLocal.launch(permisoRedLocal)
                         } else {
                             scope.launch {
-                                try {
-                                    val respuesta = RetrofitClient.authApi.crearCuenta(
-                                        RegistroRequest(
-                                            nombre = nombre.trim(),
-                                            apellido = apellido.trim(),
-                                            correo = correoRegistro.trim(),
-                                            contrasena = contrasenaRegistro
-                                        )
-                                    )
-
-                                    if (respuesta.isSuccessful) {
+                                when (val resultado = AuthController.crearCuenta(
+                                    nombre = nombre,
+                                    apellido = apellido,
+                                    correo = correoRegistro,
+                                    contrasena = contrasenaRegistro
+                                )) {
+                                    is ResultadoRegistro.Exito -> {
                                         Toast.makeText(
                                             context,
-                                            respuesta.body()?.mensaje ?: "Cuenta creada correctamente",
+                                            resultado.mensaje ?: "Cuenta creada correctamente",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                         onRegistroExitoso(nombre.trim())
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            "No se pudo crear la cuenta. Revisa si el correo ya está registrado.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
                                     }
-                                } catch (e: Exception) {
-                                    Toast.makeText(
+
+                                    ResultadoRegistro.Rechazado -> Toast.makeText(
                                         context,
-                                        e.toString(),
+                                        "No se pudo crear la cuenta. Revisa si el correo ya está registrado.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+
+                                    is ResultadoRegistro.Falla -> Toast.makeText(
+                                        context,
+                                        resultado.detalle,
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }

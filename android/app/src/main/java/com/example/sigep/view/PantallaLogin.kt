@@ -1,6 +1,6 @@
 package com.example.sigep.view
 
-import com.example.sigep.model.*
+import com.example.sigep.controller.*
 import android.os.Bundle
 import android.widget.Toast
 import android.widget.Toast.makeText
@@ -172,35 +172,22 @@ fun PantallaLogin(onCrearCuenta: () -> Unit, onLoginExitoso: (String) -> Unit) {
 
                         else -> {
                             scope.launch {
-                                try {
-                                    val respuesta = RetrofitClient.authApi.iniciarSesion(
-                                        AuthRequest(
-                                            correo = correo.trim(),
-                                            contrasena = contrasena
-                                        )
-                                    )
+                                when (val resultado = AuthController.iniciarSesion(correo, contrasena)) {
+                                    is ResultadoLogin.Exito -> onLoginExitoso(resultado.nombre)
 
-                                    if (respuesta.isSuccessful) {
-                                        val nombreApi = respuesta.body()?.usuario?.nombre
-                                        onLoginExitoso(
-                                            nombreApi?.takeIf { it.isNotBlank() }
-                                                ?: correo.trim().substringBefore("@")
-                                        )
-                                    } else if (respuesta.code() == 401) {
-                                        Toast.makeText(
-                                            context,
-                                            "Correo o contraseña incorrectos",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            "No se pudo iniciar sesión. Código: ${respuesta.code()}",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                                } catch (e: Exception) {
-                                    Toast.makeText(
+                                    ResultadoLogin.CredencialesInvalidas -> Toast.makeText(
+                                        context,
+                                        "Correo o contraseña incorrectos",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    is ResultadoLogin.ErrorServidor -> Toast.makeText(
+                                        context,
+                                        "No se pudo iniciar sesión. Código: ${resultado.codigo}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+
+                                    ResultadoLogin.SinConexion -> Toast.makeText(
                                         context,
                                         "No se pudo conectar con el servidor",
                                         Toast.LENGTH_LONG
