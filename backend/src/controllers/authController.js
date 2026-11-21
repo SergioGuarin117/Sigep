@@ -1,12 +1,12 @@
-const express = require("express");
+// CONTROLADOR: recibe la peticion, usa el modelo y responde con la vista.
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const pool = require("./db");
-
-const router = express.Router();
+const { JWT_SECRET, JWT_EXPIRA_EN } = require("../config/env");
+const usuarioModel = require("../models/usuarioModel");
+const { presentarUsuario } = require("../views/usuarioView");
 
 // Crear cuenta
-router.post("/register", async (req, res) => {
+async function register(req, res) {
   const { nombre, apellido, correo, contrasena } = req.body;
 
   if (!nombre || !apellido || !correo || !contrasena) {
@@ -16,36 +16,30 @@ router.post("/register", async (req, res) => {
   }
 
   try {
-    const existente = await pool.query(
-      "SELECT id FROM usuarios WHERE correo = $1",
-      [correo]
-    );
-
-    if (existente.rows.length > 0) {
+    if (await usuarioModel.existeCorreo(correo)) {
       return res.status(409).json({ error: "Ese correo ya está registrado" });
     }
 
-    const hash = await bcrypt.hash(contrasena, 10);
-
-    const resultado = await pool.query(
-      `INSERT INTO usuarios (nombre, apellido, correo, contrasena_hash)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, nombre, apellido, correo, rol`,
-      [nombre, apellido, correo, hash]
-    );
+    const contrasenaHash = await bcrypt.hash(contrasena, 10);
+    const usuario = await usuarioModel.crear({
+      nombre,
+      apellido,
+      correo,
+      contrasenaHash,
+    });
 
     res.status(201).json({
       mensaje: "Cuenta creada correctamente",
-      usuario: resultado.rows[0],
+      usuario: presentarUsuario(usuario),
     });
   } catch (error) {
     console.error("Error al registrar:", error);
     res.status(500).json({ error: "No se pudo crear la cuenta" });
   }
-});
+}
 
 // Iniciar sesión
-router.post("/login", async (req, res) => {
+async function login(req, res) {
   const { correo, contrasena } = req.body;
 
   if (!correo || !contrasena) {
@@ -53,18 +47,12 @@ router.post("/login", async (req, res) => {
   }
 
   try {
-    const resultado = await pool.query(
-      `SELECT id, nombre, apellido, correo, contrasena_hash, rol
-       FROM usuarios
-       WHERE correo = $1 AND activo = TRUE`,
-      [correo]
-    );
+    const usuario = await usuarioModel.buscarActivoPorCorreo(correo);
 
-    if (resultado.rows.length === 0) {
+    if (!usuario) {
       return res.status(401).json({ error: "Correo o contraseña incorrectos" });
     }
 
-    const usuario = resultado.rows[0];
     const coincide = await bcrypt.compare(contrasena, usuario.contrasena_hash);
 
     if (!coincide) {
@@ -73,25 +61,19 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       { id: usuario.id, correo: usuario.correo, rol: usuario.rol },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRA_EN }
     );
 
     res.json({
       mensaje: "Inicio de sesión correcto",
       token,
-      usuario: {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        apellido: usuario.apellido,
-        correo: usuario.correo,
-        rol: usuario.rol,
-      },
+      usuario: presentarUsuario(usuario),
     });
   } catch (error) {
     console.error("Error al iniciar sesión:", error);
     res.status(500).json({ error: "No se pudo iniciar sesión" });
   }
-});
+}
 
-module.exports = router;
+module.exports = { register, login };
