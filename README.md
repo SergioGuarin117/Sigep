@@ -14,6 +14,9 @@ epidemiologico posdesastre y analitica predictiva con IA.
 | `docs/` | Documentacion y alcance | Markdown |
 | `docker-compose.yml` | Base de datos y backend | PostgreSQL + Docker |
 
+El detalle de la organizacion MVC (backend y app) esta en
+[`docs/arquitectura-mvc.md`](docs/arquitectura-mvc.md).
+
 ## Como ejecutar
 
 ### Backend y base de datos
