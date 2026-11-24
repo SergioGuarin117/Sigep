@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:18
+    image: postgis/postgis:18-3.6
     container_name: sigep-postgres
     restart: unless-stopped
     environment:
@@ -11,7 +11,8 @@ services:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./backend/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      # Los .sql de esta carpeta se ejecutan en orden alfabetico al crear la BD
+      - ./backend/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-sigep_db}"]
       interval: 5s

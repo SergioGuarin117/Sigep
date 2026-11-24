@@ -17,12 +17,15 @@ epidemiologico posdesastre y analitica predictiva con IA.
 El detalle de la organizacion MVC (backend y app) esta en
 [`docs/arquitectura-mvc.md`](docs/arquitectura-mvc.md).
 
+El modelo de datos (PostgreSQL + PostGIS) esta en [`docs/modelo-er.md`](docs/modelo-er.md).
+
 ## Como ejecutar
 
 ### Backend y base de datos
 1. Crear `backend/.env` con `DB_PASSWORD`, `JWT_SECRET`, `DB_NAME` y `DB_USER`.
 2. Desde la raiz: `docker compose up --build`
-3. API en `http://localhost:3000`, PostgreSQL en el puerto `5434`.
+3. API en `http://localhost:3000`, PostgreSQL con PostGIS en el puerto `5434`.
+4. Si ya tenias la base creada, ejecuta antes `docker compose down -v` para que se apliquen los scripts de `backend/db/init/`.
 
 ### App Android
 1. Abrir la carpeta **`android/`** en Android Studio (no la raiz del repo).
