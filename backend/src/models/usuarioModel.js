@@ -1,5 +1,6 @@
 // MODELO: acceso a datos de la tabla "usuarios". No conoce HTTP.
 const pool = require("../config/db");
+const { ROL_POR_DEFECTO } = require("../constants/roles");
 
 async function existeCorreo(correo) {
   const resultado = await pool.query(
@@ -11,10 +12,10 @@ async function existeCorreo(correo) {
 
 async function crear({ nombre, apellido, correo, contrasenaHash }) {
   const resultado = await pool.query(
-    `INSERT INTO usuarios (nombre, apellido, correo, contrasena_hash)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO usuarios (nombre, apellido, correo, contrasena_hash, rol)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id, nombre, apellido, correo, rol`,
-    [nombre, apellido, correo, contrasenaHash]
+    [nombre, apellido, correo, contrasenaHash, ROL_POR_DEFECTO]
   );
   return resultado.rows[0];
 }
