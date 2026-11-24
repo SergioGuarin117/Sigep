@@ -13,6 +13,8 @@ backend/
     ├── config/              # db.js (PostgreSQL), env.js (puerto, JWT)
     ├── routes/              # URL -> controlador (index, auth, health)
     ├── controllers/         # logica de cada peticion
+    ├── middlewares/         # verificarToken, permitirRoles, validaciones
+    ├── constants/           # roles del sistema
     ├── models/              # consultas SQL (usuarioModel.js)
     └── views/               # forma JSON de las respuestas (usuarioView.js)
 ```

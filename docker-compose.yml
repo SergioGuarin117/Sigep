@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-sigep_db}
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: juegos11
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en backend/.env}
     ports:
       - "5434:5432"
     volumes:
