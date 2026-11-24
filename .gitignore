@@ -16,3 +16,11 @@ __pycache__/
 .venv/
 venv/
 .ipynb_checkpoints/
+
+# Android Studio / Gradle (abrir siempre la carpeta android/, no la raiz)
+.gradle/
+.idea/
+*.iml
+local.properties
+build/
+captures/

@@ -4,9 +4,9 @@ services:
     container_name: sigep-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ./backend/env
-      POSTGRES_USER: ./backend/env
-      POSTGRES_PASSWORD: ./backend/env
+      POSTGRES_DB: ${DB_NAME:-sigep_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en backend/.env}
     ports:
       - "5434:5432"
     volumes:
