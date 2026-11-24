@@ -11,7 +11,7 @@ const ROLES = Object.freeze({
 const ROLES_VALIDOS = Object.freeze(Object.values(ROLES));
 
 // El registro publico siempre crea usuarios con el rol de menor privilegio.
-// Solo un coordinador municipal podra cambiarlo (rama auth-asignar-rol-usuario).
+// Solo un coordinador municipal podra cambiarlo (rama auth-gestion-usuarios-api).
 const ROL_POR_DEFECTO = ROLES.BRIGADISTA;
 
 module.exports = { ROLES, ROLES_VALIDOS, ROL_POR_DEFECTO };

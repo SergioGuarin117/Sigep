@@ -30,4 +30,14 @@ async function buscarActivoPorCorreo(correo) {
   return resultado.rows[0] || null;
 }
 
-module.exports = { existeCorreo, crear, buscarActivoPorCorreo };
+async function buscarActivoPorId(id) {
+  const resultado = await pool.query(
+    `SELECT id, nombre, apellido, correo, rol, albergue_id, ips_id
+     FROM usuarios
+     WHERE id = $1 AND activo = TRUE`,
+    [id]
+  );
+  return resultado.rows[0] || null;
+}
+
+module.exports = { existeCorreo, crear, buscarActivoPorCorreo, buscarActivoPorId };

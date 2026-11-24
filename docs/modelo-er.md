@@ -88,8 +88,11 @@ erDiagram
 - **Habeas Data**: `auditoria_accesos` registra quien consulta o exporta datos
   de salud. El cifrado y los permisos por rol se implementan en
   `feature/auth-5-roles`.
-- **Compatibilidad**: `usuarios` conserva sus columnas; el backend actual
-  (registro/login) sigue funcionando sin cambios. El rol `usuario` es temporal.
+- **Roles**: el registro publico crea usuarios `brigadista` (menor privilegio);
+  el cambio de rol lo hace un coordinador municipal. El rol heredado `usuario`
+  ya no existe.
+- **Usuarios de prueba** (solo desarrollo, en `90-datos-ejemplo.sql`): uno por
+  rol, correo `<rol>@sigep.test`, contrasena `Sigep2026*`.
 
 ## Reiniciar la base de datos
 
