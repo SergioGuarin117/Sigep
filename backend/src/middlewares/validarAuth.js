@@ -7,10 +7,11 @@ function texto(valor) {
 }
 
 function validarRegistro(req, res, next) {
-  const nombre = texto(req.body.nombre);
-  const apellido = texto(req.body.apellido);
-  const correo = texto(req.body.correo);
-  const contrasena = typeof req.body.contrasena === "string" ? req.body.contrasena : "";
+  const cuerpo = req.body || {}; // Express 5: req.body es undefined si no llega JSON
+  const nombre = texto(cuerpo.nombre);
+  const apellido = texto(cuerpo.apellido);
+  const correo = texto(cuerpo.correo);
+  const contrasena = typeof cuerpo.contrasena === "string" ? cuerpo.contrasena : "";
 
   if (!nombre || !apellido || !correo || !contrasena) {
     return res.status(400).json({
@@ -34,8 +35,9 @@ function validarRegistro(req, res, next) {
 }
 
 function validarLogin(req, res, next) {
-  const correo = texto(req.body.correo);
-  const contrasena = typeof req.body.contrasena === "string" ? req.body.contrasena : "";
+  const cuerpo = req.body || {};
+  const correo = texto(cuerpo.correo);
+  const contrasena = typeof cuerpo.contrasena === "string" ? cuerpo.contrasena : "";
 
   if (!correo || !contrasena) {
     return res.status(400).json({ error: "Correo y contraseña son obligatorios" });

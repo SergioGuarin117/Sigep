@@ -1,6 +1,10 @@
 require("dotenv").config();
 
-const { Pool } = require("pg");
+const { Pool, types } = require("pg");
+
+// BIGINT/BIGSERIAL (ids, COUNT) llegan como texto por defecto; los queremos como numero.
+// Es seguro: los ids de este sistema nunca superan 2^53.
+types.setTypeParser(types.builtins.INT8, (valor) => Number(valor));
 
 const pool = new Pool({
   host: process.env.DB_HOST,
