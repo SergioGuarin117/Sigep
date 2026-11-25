@@ -10,4 +10,15 @@ function presentarUsuario(usuario) {
   };
 }
 
-module.exports = { presentarUsuario };
+// Version para el coordinador: incluye asignacion y estado de la cuenta.
+function presentarUsuarioAdmin(usuario) {
+  return {
+    ...presentarUsuario(usuario),
+    albergue_id: usuario.albergue_id,
+    ips_id: usuario.ips_id,
+    activo: usuario.activo,
+    creado_en: usuario.creado_en,
+  };
+}
+
+module.exports = { presentarUsuario, presentarUsuarioAdmin };
