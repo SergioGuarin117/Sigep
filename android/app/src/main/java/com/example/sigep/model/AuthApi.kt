@@ -2,6 +2,7 @@ package com.example.sigep.model
 
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
 
 data class AuthRequest(
@@ -31,6 +32,12 @@ data class AuthRespuesta(
     val error: String? = null
 )
 
+/** Respuesta de GET api/auth/yo (perfil del usuario con la sesion abierta). */
+data class PerfilRespuesta(
+    val usuario: UsuarioRespuesta? = null,
+    val error: String? = null
+)
+
 interface AuthApi {
     @POST("api/auth/login")
     suspend fun iniciarSesion(
@@ -41,4 +48,7 @@ interface AuthApi {
     suspend fun crearCuenta(
         @Body solicitud: RegistroRequest
     ): Response<AuthRespuesta>
+
+    @GET("api/auth/yo")
+    suspend fun perfil(): Response<PerfilRespuesta>
 }

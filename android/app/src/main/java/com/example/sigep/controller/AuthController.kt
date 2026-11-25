@@ -14,7 +14,8 @@ sealed interface ResultadoLogin {
 
 /** Resultado de intentar crear una cuenta. */
 sealed interface ResultadoRegistro {
-    data class Exito(val mensaje: String?) : ResultadoRegistro
+    /** [sesionIniciada] es false si la cuenta se creo pero el inicio automatico fallo. */
+    data class Exito(val mensaje: String?, val sesionIniciada: Boolean) : ResultadoRegistro
     data object Rechazado : ResultadoRegistro
     data class Falla(val detalle: String) : ResultadoRegistro
 }
@@ -29,11 +30,17 @@ object AuthController {
             )
             when {
                 respuesta.isSuccessful -> {
-                    val nombreApi = respuesta.body()?.usuario?.nombre
-                    ResultadoLogin.Exito(
-                        nombreApi?.takeIf { it.isNotBlank() }
-                            ?: correo.trim().substringBefore("@")
-                    )
+                    val token = respuesta.body()?.token
+                    val usuario = respuesta.body()?.usuario
+                    if (token.isNullOrBlank() || usuario == null) {
+                        ResultadoLogin.ErrorServidor(respuesta.code())
+                    } else {
+                        val nombreRespaldo = correo.trim().substringBefore("@")
+                        SesionController.abrirSesion(token, usuario, nombreRespaldo)
+                        ResultadoLogin.Exito(
+                            usuario.nombre?.takeIf { it.isNotBlank() } ?: nombreRespaldo
+                        )
+                    }
                 }
                 respuesta.code() == 401 -> ResultadoLogin.CredencialesInvalidas
                 else -> ResultadoLogin.ErrorServidor(respuesta.code())
@@ -59,7 +66,12 @@ object AuthController {
                 )
             )
             if (respuesta.isSuccessful) {
-                ResultadoRegistro.Exito(respuesta.body()?.mensaje)
+                // El registro no devuelve token: se inicia sesion con los mismos datos.
+                val inicio = iniciarSesion(correo, contrasena)
+                ResultadoRegistro.Exito(
+                    mensaje = respuesta.body()?.mensaje,
+                    sesionIniciada = inicio is ResultadoLogin.Exito
+                )
             } else {
                 ResultadoRegistro.Rechazado
             }

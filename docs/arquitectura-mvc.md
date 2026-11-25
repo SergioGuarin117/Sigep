@@ -32,8 +32,10 @@ sigep/
 ├── MainActivity.kt          # punto de entrada (AndroidManifest) y AplicacionSIGEP
 ├── model/                   # datos y acceso a datos
 │   ├── Modelos.kt           #   entidades: Paciente, Alerta, Equipo, Triage...
+│   ├── Sesion.kt            #   enum Rol (5 roles) y SesionUsuario
+│   ├── AlmacenSesion.kt     #   guarda la sesion en el almacenamiento privado de la app
 │   ├── AuthApi.kt           #   contrato Retrofit + DTOs de autenticacion
-│   ├── RetrofitClient.kt    #   cliente HTTP
+│   ├── RetrofitClient.kt    #   cliente HTTP (agrega Authorization: Bearer y detecta 401)
 │   └── RepositorioSigep.kt  #   datos de la app
 ├── view/                    # interfaz (Jetpack Compose)
 │   ├── Pantalla*.kt         #   pantallas
@@ -42,6 +44,7 @@ sigep/
 │   └── theme/               #   colores, tipografia, tema
 └── controller/              # logica que conecta vista y modelo
     ├── AuthController.kt    #   login y registro (llama a la API)
+    ├── SesionController.kt  #   quien esta conectado y con que rol (StateFlow)
     └── Navegacion.kt        #   pestanas (Pestana) y rutas (RutaCasos)
 ```
 
@@ -50,3 +53,14 @@ Reglas de dependencia: `model` no conoce a `view` ni a `controller`;
 
 Pendiente en ramas siguientes: mover la logica de estado que aun vive dentro
 de algunas pantallas (casos, alertas, equipos) a controladores propios.
+
+## Sesión en la app Android
+
+- Al iniciar sesión (o al registrarse, que inicia sesión automáticamente) el token y los datos del
+  usuario se guardan en `AlmacenSesion`; al reabrir la app la sesión sigue abierta.
+- `SesionController.sesion` es un `StateFlow<SesionUsuario?>`: si es `null` se muestra el login; si no,
+  la app. Las pantallas leen el rol con `sesion.rol` (enum `Rol`).
+- `RetrofitClient` agrega `Authorization: Bearer <token>` a toda petición. Si el servidor responde
+  **401** a una petición con token (token vencido o cuenta desactivada), la sesión se cierra y se avisa.
+- Al abrir la app se llama a `GET /api/auth/yo` para actualizar rol y nombre (el coordinador puede
+  haberlos cambiado). Sin conexión se conserva la sesión guardada.

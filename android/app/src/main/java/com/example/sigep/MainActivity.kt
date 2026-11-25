@@ -1,6 +1,9 @@
 package com.example.sigep
 
+import com.example.sigep.controller.*
 import com.example.sigep.view.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,34 +78,46 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AplicacionSIGEP() {
     var mostrarRegistro by rememberSaveable { mutableStateOf(false) }
-    var sesionIniciada by rememberSaveable { mutableStateOf(false) }
-    var nombreUsuario by rememberSaveable { mutableStateOf("") }
+    val sesion by SesionController.sesion.collectAsState()
+    val sesionExpirada by SesionController.sesionExpirada.collectAsState()
+    val contexto = LocalContext.current
+
+    // Con una sesion guardada, se confirma con el servidor el rol y el nombre vigentes.
+    LaunchedEffect(sesion?.id) {
+        if (sesion != null) {
+            SesionController.refrescarPerfil()
+        }
+    }
+
+    // Si el servidor rechazo el token, se avisa una vez y se vuelve al inicio de sesion.
+    LaunchedEffect(sesionExpirada) {
+        if (sesionExpirada) {
+            Toast.makeText(
+                contexto,
+                "Tu sesión expiró. Inicia sesión de nuevo.",
+                Toast.LENGTH_LONG
+            ).show()
+            SesionController.avisoExpiradaMostrado()
+        }
+    }
 
     when {
-        sesionIniciada -> PantallaPrincipal(
-            nombreUsuario = nombreUsuario,
+        sesion != null -> PantallaPrincipal(
+            nombreUsuario = sesion?.nombre.orEmpty(),
             onCerrarSesion = {
-                sesionIniciada = false
                 mostrarRegistro = false
-                nombreUsuario = ""
+                SesionController.cerrarSesion()
             }
         )
 
         mostrarRegistro -> PantallaRegistro(
             onVolver = { mostrarRegistro = false },
-            onRegistroExitoso = { nombre ->
-                nombreUsuario = nombre
-                mostrarRegistro = false
-                sesionIniciada = true
-            }
+            onRegistroExitoso = { _ -> mostrarRegistro = false }
         )
 
         else -> PantallaLogin(
             onCrearCuenta = { mostrarRegistro = true },
-            onLoginExitoso = { nombre ->
-                nombreUsuario = nombre
-                sesionIniciada = true
-            }
+            onLoginExitoso = { _ -> }
         )
     }
 }
