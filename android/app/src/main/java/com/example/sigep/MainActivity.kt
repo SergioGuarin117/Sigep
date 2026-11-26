@@ -2,6 +2,7 @@ package com.example.sigep
 
 import com.example.sigep.controller.*
 import com.example.sigep.view.*
+import com.example.sigep.model.Rol
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,7 +50,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.ComponentActivity
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast.makeText
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.offset
@@ -57,8 +61,21 @@ import androidx.compose.foundation.layout.offset
 
 
 class MainActivity : ComponentActivity() {
+    // Android 17 bloquea por defecto la red local (el emulador llega al PC por 10.0.2.2).
+    private val pedirRedLocal =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Abre el almacen de sesion y recupera la sesion guardada antes de dibujar la app.
+        SesionController.iniciar(applicationContext)
+
+        if (Build.VERSION.SDK_INT >= 37 &&
+            checkSelfPermission(PERMISO_RED_LOCAL) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pedirRedLocal.launch(PERMISO_RED_LOCAL)
+        }
 
         setContent {
             MaterialTheme(
@@ -74,6 +91,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+private const val PERMISO_RED_LOCAL = "android.permission.ACCESS_LOCAL_NETWORK"
 
 @Composable
 fun AplicacionSIGEP() {
@@ -104,6 +123,8 @@ fun AplicacionSIGEP() {
     when {
         sesion != null -> PantallaPrincipal(
             nombreUsuario = sesion?.nombre.orEmpty(),
+            rol = sesion?.rol ?: Rol.BRIGADISTA,
+            miId = sesion?.id ?: 0L,
             onCerrarSesion = {
                 mostrarRegistro = false
                 SesionController.cerrarSesion()

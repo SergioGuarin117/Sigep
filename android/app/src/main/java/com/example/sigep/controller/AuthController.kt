@@ -1,5 +1,6 @@
 package com.example.sigep.controller
 
+import android.util.Log
 import com.example.sigep.model.AuthRequest
 import com.example.sigep.model.RegistroRequest
 import com.example.sigep.model.RetrofitClient
@@ -46,6 +47,7 @@ object AuthController {
                 else -> ResultadoLogin.ErrorServidor(respuesta.code())
             }
         } catch (e: Exception) {
+            Log.e("SIGEP", "Fallo al iniciar sesion", e)
             ResultadoLogin.SinConexion
         }
     }
@@ -76,6 +78,7 @@ object AuthController {
                 ResultadoRegistro.Rechazado
             }
         } catch (e: Exception) {
+            Log.e("SIGEP", "Fallo al crear la cuenta", e)
             ResultadoRegistro.Falla(e.toString())
         }
     }

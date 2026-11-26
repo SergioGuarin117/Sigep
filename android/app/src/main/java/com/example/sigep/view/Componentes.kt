@@ -97,6 +97,7 @@ fun normalizar(texto: String): String =
 fun Encabezado(
     titulo: String,
     alertasActivas: Int,
+    rolEtiqueta: String,
     onAtras: (() -> Unit)?,
     onCampana: () -> Unit,
     onCerrarSesion: () -> Unit
@@ -117,7 +118,7 @@ fun Encabezado(
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "SIGEP · DESASTRES",
+                text = "SIGEP · ${rolEtiqueta.uppercase()}",
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 10.sp,
                 letterSpacing = 1.sp

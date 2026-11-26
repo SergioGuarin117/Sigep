@@ -32,10 +32,14 @@ import java.util.Calendar
 fun ContenidoInicio(
     repo: RepositorioSigep,
     nombreUsuario: String,
+    visibles: List<Pestana>,
     onIrA: (Pestana) -> Unit,
     onRegistrar: () -> Unit,
     onAbrirPaciente: (Long) -> Unit
 ) {
+    val veCasos = Pestana.CASOS in visibles
+    val veEquipos = Pestana.EQUIPOS in visibles
+    val veReportes = Pestana.REPORTES in visibles
     val activas = repo.alertas
         .filter { it.estado != EstadoAlerta.RESUELTA }
         .sortedWith(compareBy<Alerta> { it.nivel.orden }.thenByDescending { it.creadaEn })
@@ -80,7 +84,7 @@ fun ContenidoInicio(
 
             TituloSeccion("Resumen de situación")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TarjetaResumen(
+                if (veCasos) TarjetaResumen(
                     valor = pacientesActivos.size.toString(),
                     titulo = "Casos activos",
                     modifier = Modifier.weight(1f),
@@ -92,7 +96,7 @@ fun ContenidoInicio(
                     modifier = Modifier.weight(1f),
                     onClick = { onIrA(Pestana.ALERTAS) }
                 )
-                TarjetaResumen(
+                if (veEquipos) TarjetaResumen(
                     valor = "$enCampo/${repo.equipos.size}",
                     titulo = "Equipos en campo",
                     modifier = Modifier.weight(1f),
@@ -136,7 +140,7 @@ fun ContenidoInicio(
                 }
             }
 
-            inmediatos.take(2).forEach { paciente ->
+            if (veCasos) inmediatos.take(2).forEach { paciente ->
                 Tarjeta(Modifier.fillMaxWidth(), onClick = { onAbrirPaciente(paciente.id) }) {
                     Row(
                         Modifier.padding(12.dp).height(IntrinsicSize.Min),
@@ -166,15 +170,17 @@ fun ContenidoInicio(
                 }
             }
 
-            TituloSeccion("Gestión de la respuesta")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TarjetaResumen("Casos", "Seguimiento", Modifier.weight(1f), onClick = { onIrA(Pestana.CASOS) })
-                TarjetaResumen("Equipos", "Despliegue", Modifier.weight(1f), onClick = { onIrA(Pestana.EQUIPOS) })
-                TarjetaResumen("Reportes", "Balance diario", Modifier.weight(1f), onClick = { onIrA(Pestana.REPORTES) })
+            if (veCasos || veEquipos || veReportes) {
+                TituloSeccion("Gestión de la respuesta")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (veCasos) TarjetaResumen("Casos", "Seguimiento", Modifier.weight(1f), onClick = { onIrA(Pestana.CASOS) })
+                    if (veEquipos) TarjetaResumen("Equipos", "Despliegue", Modifier.weight(1f), onClick = { onIrA(Pestana.EQUIPOS) })
+                    if (veReportes) TarjetaResumen("Reportes", "Balance diario", Modifier.weight(1f), onClick = { onIrA(Pestana.REPORTES) })
+                }
             }
 
             Spacer(Modifier.height(4.dp))
-            BotonPrimario("Registrar afectado", onClick = onRegistrar)
+            if (veCasos) BotonPrimario("Registrar afectado", onClick = onRegistrar)
             Text(
                 "Datos de uso exclusivo del personal autorizado.",
                 color = TextoSuave,

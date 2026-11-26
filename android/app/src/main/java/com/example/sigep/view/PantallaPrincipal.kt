@@ -38,12 +38,22 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 @Composable
-fun PantallaPrincipal(nombreUsuario: String, onCerrarSesion: () -> Unit) {
+fun PantallaPrincipal(
+    nombreUsuario: String,
+    rol: Rol,
+    miId: Long,
+    onCerrarSesion: () -> Unit
+) {
     val contexto = LocalContext.current
     val repo = remember { RepositorioSigep(contexto.applicationContext) }
     val borrador = remember { BorradorPaciente() }
 
+    val visibles = remember(rol) { Pestana.paraRol(rol) }
     var pestana by rememberSaveable { mutableStateOf(Pestana.INICIO) }
+    // Si el rol cambia (lo ajusta el coordinador) y la pestaña ya no esta permitida, se vuelve al inicio.
+    LaunchedEffect(visibles) {
+        if (pestana !in visibles) pestana = Pestana.INICIO
+    }
     var ruta by remember { mutableStateOf<RutaCasos>(RutaCasos.Lista) }
     var vistaCasos by rememberSaveable { mutableIntStateOf(0) }
     var mensaje by remember { mutableStateOf<String?>(null) }
@@ -115,6 +125,7 @@ fun PantallaPrincipal(nombreUsuario: String, onCerrarSesion: () -> Unit) {
             Encabezado(
                 titulo = titulo,
                 alertasActivas = alertasActivas,
+                rolEtiqueta = rol.etiqueta,
                 onAtras = if (enSubPantalla) ({ volverCasos() }) else null,
                 onCampana = { pestana = Pestana.ALERTAS },
                 onCerrarSesion = onCerrarSesion
@@ -123,7 +134,7 @@ fun PantallaPrincipal(nombreUsuario: String, onCerrarSesion: () -> Unit) {
         bottomBar = {
             if (!tecladoVisible) {
                 NavigationBar(containerColor = Color.White) {
-                    Pestana.entries.forEach { p ->
+                    visibles.forEach { p ->
                         NavigationBarItem(
                             selected = pestana == p,
                             onClick = {
@@ -150,6 +161,7 @@ fun PantallaPrincipal(nombreUsuario: String, onCerrarSesion: () -> Unit) {
                 Pestana.INICIO -> ContenidoInicio(
                     repo = repo,
                     nombreUsuario = nombreUsuario,
+                    visibles = visibles,
                     onIrA = { destino ->
                         if (destino == Pestana.CASOS) ruta = RutaCasos.Lista
                         pestana = destino
@@ -174,6 +186,8 @@ fun PantallaPrincipal(nombreUsuario: String, onCerrarSesion: () -> Unit) {
                 Pestana.EQUIPOS -> ContenidoEquipos(repo)
 
                 Pestana.REPORTES -> ContenidoReportes(repo)
+
+                Pestana.USUARIOS -> ContenidoUsuarios(miId)
             }
         }
     }

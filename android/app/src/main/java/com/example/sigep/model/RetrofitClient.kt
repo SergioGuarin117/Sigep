@@ -35,12 +35,15 @@ object RetrofitClient {
             .build()
     }
 
-    val authApi: AuthApi by lazy {
+    private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(cliente)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(AuthApi::class.java)
     }
+
+    val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
+
+    val usuariosApi: UsuariosApi by lazy { retrofit.create(UsuariosApi::class.java) }
 }
