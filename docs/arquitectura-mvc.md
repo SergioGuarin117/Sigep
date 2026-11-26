@@ -64,3 +64,16 @@ de algunas pantallas (casos, alertas, equipos) a controladores propios.
   **401** a una petición con token (token vencido o cuenta desactivada), la sesión se cierra y se avisa.
 - Al abrir la app se llama a `GET /api/auth/yo` para actualizar rol y nombre (el coordinador puede
   haberlos cambiado). Sin conexión se conserva la sesión guardada.
+
+## Pestañas de la app según el rol
+
+La barra inferior se arma con `Pestana.paraRol(rol)` (`controller/Navegacion.kt`). Cada rol ve como máximo 5 pestañas y la pantalla de inicio oculta los accesos a lo que su rol no ve. La seguridad real sigue estando en el backend (`permitirRoles`); ocultar una pestaña es solo comodidad.
+
+| Rol | Pestañas |
+|---|---|
+| Brigadista de campo, Médico de triage | Inicio, Alertas, Casos |
+| Administrador de albergue | Inicio, Alertas, Casos, Equipos, Reportes |
+| Director de IPS | Inicio, Alertas, Equipos, Reportes |
+| Coordinador municipal | Inicio, Alertas, Casos, Reportes, Usuarios |
+
+La pestaña **Usuarios** (solo coordinador) lista cuentas con búsqueda y filtro por rol, y permite cambiar el rol o activar/desactivar una cuenta con `GET` y `PATCH /api/usuarios`.
