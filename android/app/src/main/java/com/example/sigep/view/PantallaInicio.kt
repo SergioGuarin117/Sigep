@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -170,6 +173,16 @@ fun ContenidoInicio(
                 }
             }
 
+            val albergues = AlberguesCache.lista.filter { it.activo }
+            if (albergues.isNotEmpty()) {
+                TituloSeccion("Ocupación de albergues")
+                Tarjeta(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        albergues.forEach { FilaOcupacion(it) }
+                    }
+                }
+            }
+
             if (veCasos || veEquipos || veReportes) {
                 TituloSeccion("Gestión de la respuesta")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -187,5 +200,40 @@ fun ContenidoInicio(
                 fontSize = 11.sp
             )
         }
+    }
+}
+
+@Composable
+private fun FilaOcupacion(albergue: AlbergueDto) {
+    val porcentaje = albergue.ocupacion_porcentaje
+    val color = when {
+        porcentaje == null -> TextoSuave
+        porcentaje >= 90 -> RojoSigep
+        porcentaje >= 70 -> Color(0xFFB8741A)
+        else -> VerdeSigep
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                albergue.nombre,
+                color = TextoOscuro,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                "${albergue.personas_alojadas} / ${albergue.capacidad_personas}" +
+                    (porcentaje?.let { " · $it %" } ?: ""),
+                color = color,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        LinearProgressIndicator(
+            progress = { ((porcentaje ?: 0) / 100f).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+            color = color,
+            trackColor = AzulClaro
+        )
     }
 }

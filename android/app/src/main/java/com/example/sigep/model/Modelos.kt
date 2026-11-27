@@ -1,8 +1,21 @@
 package com.example.sigep.model
 
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.Color
 
-val ALBERGUES = listOf("La Rivera", "El Pinar", "Las Flores", "El Puente")
+/** Albergues que llegaron de la API (se guardan en el dispositivo para verlos sin conexión). */
+object AlberguesCache {
+    val lista = mutableStateListOf<AlbergueDto>()
+
+    fun porNombre(nombre: String): AlbergueDto? = lista.firstOrNull { it.nombre == nombre }
+    fun porId(id: Long?): AlbergueDto? = lista.firstOrNull { it.id == id }
+}
+
+private val ALBERGUES_BASE = listOf("La Rivera", "El Pinar", "Las Flores", "El Puente")
+
+/** Nombres de los albergues activos; mientras no haya datos del servidor se usa la lista base. */
+val ALBERGUES: List<String>
+    get() = AlberguesCache.lista.filter { it.activo }.map { it.nombre }.ifEmpty { ALBERGUES_BASE }
 val TIPOS_SANGRE = listOf("O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-", "Desconocido")
 val SINTOMAS = listOf(
     "Fiebre", "Diarrea", "Vómito", "Tos", "Dificultad para respirar",

@@ -65,6 +65,17 @@ fun PantallaPrincipal(
         }
     }
 
+    // Albergues y censo vienen de la API: se refrescan al abrir la app y al volver a Inicio o Casos.
+    // El director de IPS no ve datos individuales de pacientes, asi que para el no se piden.
+    LaunchedEffect(pestana) {
+        if (pestana == Pestana.INICIO || pestana == Pestana.CASOS) {
+            val resultado = CensoController.sincronizar(repo, conPacientes = rol != Rol.DIRECTOR_IPS)
+            if (resultado == ResultadoSync.SIN_CONEXION) {
+                mensaje = "Sin conexión con el servidor: se muestran los últimos datos guardados."
+            }
+        }
+    }
+
     fun irARegistro() {
         pestana = Pestana.CASOS
         vistaCasos = 0

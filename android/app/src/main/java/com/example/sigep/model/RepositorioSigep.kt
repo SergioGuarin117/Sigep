@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Guarda los datos de la operación en el dispositivo (SharedPreferences + JSON).
@@ -19,6 +22,8 @@ class RepositorioSigep(contexto: Context) {
     val equipos = mutableStateListOf<Equipo>()
 
     init {
+        AlberguesCache.lista.clear()
+        AlberguesCache.lista.addAll(leer("albergues", object : TypeToken<List<AlbergueDto>>() {}))
         pacientes.addAll(leer("pacientes", object : TypeToken<List<Paciente>>() {}))
         alertas.addAll(leer("alertas", object : TypeToken<List<Alerta>>() {}))
         equipos.addAll(leer("equipos", object : TypeToken<List<Equipo>>() {}))
@@ -33,45 +38,74 @@ class RepositorioSigep(contexto: Context) {
         }
     }
 
+    companion object {
+        /** Quita del dispositivo los datos de pacientes (se usa al cerrar sesión). */
+        fun borrarDatosPersonales(contexto: Context?) {
+            contexto?.getSharedPreferences("sigep_datos", Context.MODE_PRIVATE)
+                ?.edit()?.remove("pacientes")?.apply()
+        }
+    }
+
+    // ---------- Albergues (vienen de la API) ----------
+
+    fun reemplazarAlbergues(nuevos: List<AlbergueDto>) {
+        AlberguesCache.lista.clear()
+        AlberguesCache.lista.addAll(nuevos)
+        prefs.edit().putString("albergues", gson.toJson(nuevos)).apply()
+    }
+
     // ---------- Pacientes ----------
 
-    fun agregarPaciente(
-        nombre: String,
-        apellido: String,
-        tipoSangre: String,
-        centro: String,
-        observaciones: String,
-        triage: Triage
-    ): Paciente {
-        val numero = prefs.getInt("contador_pacientes", 0) + 1
-        prefs.edit().putInt("contador_pacientes", numero).apply()
-        val paciente = Paciente(
-            id = System.currentTimeMillis(),
-            numero = numero,
-            nombre = nombre.trim(),
-            apellido = apellido.trim(),
-            tipoSangre = tipoSangre,
-            centro = centro,
-            observaciones = observaciones.trim(),
-            triage = triage,
-            creadoEn = System.currentTimeMillis()
-        )
+    /** Reemplaza la lista por la del servidor; el triage y la condicion (aun locales) se conservan por id. */
+    fun reemplazarPacientes(remotos: List<PacienteDto>) {
+        val previos = pacientes.associateBy { it.id }
+        val nuevos = remotos.map { aPaciente(it, previos[it.id]) }
+        pacientes.clear()
+        pacientes.addAll(nuevos)
+        guardarPacientes()
+    }
+
+    /** Agrega un paciente recien registrado en el servidor (con el triage calculado en la app). */
+    fun agregarDesdeServidor(dto: PacienteDto, triage: Triage): Paciente {
+        val paciente = aPaciente(dto, null).copy(triage = triage)
+        pacientes.removeAll { it.id == paciente.id }
         pacientes.add(0, paciente)
         guardarPacientes()
         return paciente
+    }
+
+    fun fijarCierre(id: Long, cerrado: Boolean) = actualizarPaciente(id) { it.copy(cerrado = cerrado) }
+
+    private fun aPaciente(dto: PacienteDto, previo: Paciente?): Paciente = Paciente(
+        id = dto.id,
+        numero = dto.codigo?.substringAfter("P-")?.toIntOrNull() ?: previo?.numero ?: 0,
+        nombre = dto.nombres,
+        apellido = dto.apellidos,
+        tipoSangre = dto.tipo_sangre ?: "Desconocido",
+        centro = AlberguesCache.porId(dto.albergue_id)?.nombre ?: "Sin albergue",
+        observaciones = dto.observaciones.orEmpty(),
+        // El triage y la condicion todavia no viven en el servidor (llegan en la rama de triage).
+        triage = previo?.triage ?: Triage.P3,
+        creadoEn = milisDesdeIso(dto.creado_en) ?: previo?.creadoEn ?: System.currentTimeMillis(),
+        cerrado = dto.cerrado,
+        condicion = previo?.condicion
+    )
+
+    private fun milisDesdeIso(texto: String?): Long? {
+        if (texto == null || texto.length < 19) return null
+        return try {
+            val formato = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            formato.timeZone = TimeZone.getTimeZone("UTC")
+            formato.parse(texto.substring(0, 19))?.time
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun pacientePorId(id: Long): Paciente? = pacientes.firstOrNull { it.id == id }
 
     fun guardarCondicion(id: Long, condicion: Condicion) =
         actualizarPaciente(id) { it.copy(condicion = condicion) }
-
-    fun alternarAlta(id: Long) = actualizarPaciente(id) { it.copy(cerrado = !it.cerrado) }
-
-    fun eliminarPaciente(id: Long) {
-        pacientes.removeAll { it.id == id }
-        guardarPacientes()
-    }
 
     private fun actualizarPaciente(id: Long, cambio: (Paciente) -> Paciente) {
         val i = pacientes.indexOfFirst { it.id == id }
