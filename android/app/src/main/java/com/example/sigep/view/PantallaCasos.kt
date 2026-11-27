@@ -39,6 +39,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -109,11 +111,7 @@ fun PantallaCasos(
         is RutaCasos.Detalle -> VistaDetalle(
             repo = repo,
             id = ruta.pacienteId,
-            onEditarCondicion = { onRuta(RutaCasos.Condicion(ruta.pacienteId, esNuevo = false)) },
-            onEliminado = { texto ->
-                onMensaje(texto)
-                onRuta(RutaCasos.Lista)
-            }
+            onEditarCondicion = { onRuta(RutaCasos.Condicion(ruta.pacienteId, esNuevo = false)) }
         )
     }
 }
@@ -157,7 +155,6 @@ private fun VistaPacientes(
 ) {
     var busqueda by rememberSaveable { mutableStateOf("") }
     var filtro by rememberSaveable { mutableIntStateOf(0) } // 0 = todos, 1..3 = P1..P3
-    var porEliminar by remember { mutableStateOf<Paciente?>(null) }
 
     val todos = repo.pacientes
     val triageFiltro = Triage.entries.getOrNull(filtro - 1)
@@ -249,7 +246,7 @@ private fun VistaPacientes(
                 Tarjeta(Modifier.fillMaxWidth()) {
                     visibles.forEachIndexed { i, p ->
                         if (i > 0) HorizontalDivider(color = BordeSuave)
-                        FilaPaciente(p, onAbrir = { onAbrir(p.id) }, onEliminar = { porEliminar = p })
+                        FilaPaciente(p, onAbrir = { onAbrir(p.id) })
                     }
                 }
             }
@@ -266,26 +263,15 @@ private fun VistaPacientes(
         }
     }
 
-    porEliminar?.let { p ->
-        DialogoEliminarPaciente(
-            paciente = p,
-            onCancelar = { porEliminar = null },
-            onConfirmar = {
-                repo.eliminarPaciente(p.id)
-                onMensaje("Se eliminó el registro de ${p.nombreCompleto}.")
-                porEliminar = null
-            }
-        )
-    }
 }
 
 @Composable
-private fun FilaPaciente(p: Paciente, onAbrir: () -> Unit, onEliminar: () -> Unit) {
+private fun FilaPaciente(p: Paciente, onAbrir: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onAbrir)
-            .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 2.dp),
+            .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -308,24 +294,7 @@ private fun FilaPaciente(p: Paciente, onAbrir: () -> Unit, onEliminar: () -> Uni
             }
         }
         EtiquetaTriage(p.triage)
-        IconButton(onClick = onEliminar) {
-            Icon(Icons.Filled.Delete, contentDescription = "Eliminar a ${p.nombreCompleto}", tint = RojoSigep)
-        }
     }
-}
-
-@Composable
-private fun DialogoEliminarPaciente(paciente: Paciente, onCancelar: () -> Unit, onConfirmar: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onCancelar,
-        containerColor = Color.White,
-        title = { Text("Eliminar paciente") },
-        text = {
-            Text("¿Eliminar a ${paciente.nombreCompleto} (${paciente.codigo})? Se borrará también su condición. Esta acción no se puede deshacer.")
-        },
-        confirmButton = { TextButton(onClick = onConfirmar) { Text("Eliminar", color = RojoSigep, fontWeight = FontWeight.Bold) } },
-        dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
-    )
 }
 
 // ---------------------------------------------------------------- Vigilancia epidemiológica
@@ -468,11 +437,12 @@ private fun VistaVigilancia(repo: RepositorioSigep, onAbrir: (Long) -> Unit) {
 private fun VistaDetalle(
     repo: RepositorioSigep,
     id: Long,
-    onEditarCondicion: () -> Unit,
-    onEliminado: (String) -> Unit
+    onEditarCondicion: () -> Unit
 ) {
     val p = repo.pacientePorId(id)
-    var confirmarEliminar by remember { mutableStateOf(false) }
+    val alcance = rememberCoroutineScope()
+    var guardandoAlta by remember { mutableStateOf(false) }
+    var errorAlta by remember { mutableStateOf<String?>(null) }
 
     if (p == null) {
         Column(Modifier.fillMaxSize().padding(24.dp)) {
@@ -545,22 +515,19 @@ private fun VistaDetalle(
 
             BotonPrimario(
                 texto = if (p.cerrado) "Reabrir caso" else "Dar de alta",
-                onClick = { repo.alternarAlta(p.id) },
+                enabled = !guardandoAlta,
+                onClick = {
+                    alcance.launch {
+                        guardandoAlta = true
+                        errorAlta = null
+                        val resultado = CensoController.cambiarAlta(repo, p)
+                        if (resultado is ResultadoAlta.Falla) errorAlta = resultado.mensaje
+                        guardandoAlta = false
+                    }
+                },
                 color = if (p.cerrado) AzulSigep else VerdeSigep
             )
-            BotonTextoCentrado("Eliminar paciente", { confirmarEliminar = true }, RojoSigep)
+            errorAlta?.let { Text(it, color = RojoSigep, fontSize = 13.sp) }
         }
-    }
-
-    if (confirmarEliminar) {
-        DialogoEliminarPaciente(
-            paciente = p,
-            onCancelar = { confirmarEliminar = false },
-            onConfirmar = {
-                confirmarEliminar = false
-                repo.eliminarPaciente(p.id)
-                onEliminado("Se eliminó el registro de ${p.nombreCompleto}.")
-            }
-        )
     }
 }

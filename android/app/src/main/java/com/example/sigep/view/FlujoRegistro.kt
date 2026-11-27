@@ -1,6 +1,7 @@
 package com.example.sigep.view
 
 import com.example.sigep.model.*
+import com.example.sigep.controller.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -282,6 +285,9 @@ private fun PasoResumen(
     onRegistrado: (Paciente) -> Unit
 ) {
     val triage = borrador.triage
+    val alcance = rememberCoroutineScope()
+    var enviando by remember { mutableStateOf(false) }
+    var errorEnvio by remember { mutableStateOf<String?>(null) }
 
     Text("Resumen del registro", color = TextoOscuro, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     Text("Revisa la información antes de confirmar.", color = TextoSuave, fontSize = 13.sp)
@@ -341,25 +347,38 @@ private fun PasoResumen(
         )
     }
 
+    errorEnvio?.let { Text(it, color = RojoSigep, fontSize = 13.sp) }
+
     BotonPrimario(
-        "Confirmar registro ✓",
-        enabled = borrador.confirmado && triage != null,
+        if (enviando) "Registrando…" else "Confirmar registro ✓",
+        enabled = borrador.confirmado && triage != null && !enviando,
         onClick = {
             if (triage != null) {
-                val nuevo = repo.agregarPaciente(
-                    nombre = borrador.nombre,
-                    apellido = borrador.apellido,
-                    tipoSangre = borrador.tipoSangre,
-                    centro = borrador.centro,
-                    observaciones = borrador.observaciones,
-                    triage = triage
-                )
-                borrador.limpiar()
-                onRegistrado(nuevo)
+                alcance.launch {
+                    enviando = true
+                    errorEnvio = null
+                    val resultado = CensoController.registrarPaciente(
+                        repo = repo,
+                        nombre = borrador.nombre,
+                        apellido = borrador.apellido,
+                        tipoSangre = borrador.tipoSangre,
+                        centro = borrador.centro,
+                        observaciones = borrador.observaciones,
+                        triage = triage
+                    )
+                    when (resultado) {
+                        is ResultadoPaciente.Exito -> {
+                            borrador.limpiar()
+                            onRegistrado(resultado.paciente)
+                        }
+                        is ResultadoPaciente.Falla -> errorEnvio = resultado.mensaje
+                    }
+                    enviando = false
+                }
             }
         }
     )
-    BotonTextoCentrado("Volver a observaciones", { borrador.paso = 2 })
+    BotonTextoCentrado("Volver a observaciones", { if (!enviando) borrador.paso = 2 })
 }
 
 @Composable

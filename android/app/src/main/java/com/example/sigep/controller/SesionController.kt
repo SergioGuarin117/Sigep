@@ -3,6 +3,7 @@ package com.example.sigep.controller
 import android.content.Context
 import com.example.sigep.model.AlmacenSesion
 import com.example.sigep.model.RetrofitClient
+import com.example.sigep.model.RepositorioSigep
 import com.example.sigep.model.Rol
 import com.example.sigep.model.SesionUsuario
 import com.example.sigep.model.UsuarioRespuesta
@@ -23,8 +24,11 @@ object SesionController {
     /** true cuando la sesion se cerro porque el servidor rechazo el token. */
     val sesionExpirada: StateFlow<Boolean> = _sesionExpirada.asStateFlow()
 
+    private var contextoApp: Context? = null
+
     /** Se llama una vez al abrir la app: recupera la sesion guardada. */
     fun iniciar(contexto: Context) {
+        contextoApp = contexto.applicationContext
         AlmacenSesion.iniciar(contexto)
         _sesion.value = AlmacenSesion.leer()
         RetrofitClient.alSesionExpirada = { cerrarSesion(expirada = true) }
@@ -45,6 +49,8 @@ object SesionController {
 
     fun cerrarSesion(expirada: Boolean = false) {
         AlmacenSesion.borrar()
+        // Los datos de salud no deben quedar en el telefono para la siguiente persona que inicie sesion.
+        RepositorioSigep.borrarDatosPersonales(contextoApp)
         _sesion.value = null
         if (expirada) {
             _sesionExpirada.value = true
