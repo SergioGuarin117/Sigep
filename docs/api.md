@@ -117,6 +117,48 @@ se guardan todas o ninguna. También se agregan una a una:
 | `POST /api/pacientes/:id/vacunas` | `vacuna` (obligatoria), `dosis_numero`, `fecha_aplicacion` |
 | `DELETE /api/pacientes/:id/<tipo>/:itemId` | Solo médico, administrador de albergue o coordinador |
 
+## Triage (`/api/pacientes/:id/triage` y `/api/triage`)
+
+El triage usa la escala **verde, amarillo, rojo y negro**. El sistema **sugiere** un nivel con reglas
+(`reglas-v1`) y explica por qué; el **nivel final lo confirma un médico**. Mientras no lo confirma,
+`pendiente_confirmacion` es `true` y `decision` es `null`.
+
+| Método y ruta | Quién | Qué hace |
+|---|---|---|
+| `POST /api/pacientes/:id/triage` | brigadista, médico, admin. de albergue, coordinador | Registra una evaluación y calcula la sugerencia. `409` si el caso está cerrado |
+| `GET /api/pacientes/:id/triage` | mismos | Historial de evaluaciones, la más reciente primero |
+| `GET /api/triage/pendientes` | médico, admin. de albergue, coordinador | Cola de evaluaciones sin confirmar (la última de cada paciente con caso abierto). Filtro `albergue_id`. Orden: rojo, negro, amarillo, verde |
+| `PATCH /api/triage/:id/confirmar` | solo `medico_triage` | Fija `nivel_final`. Una sola vez por evaluación: para corregir se registra una evaluación nueva (`409` si ya estaba confirmada) |
+
+Cuerpo de `POST .../triage` (todos opcionales; los que falten se avisan en `datos_faltantes`):
+`frecuencia_cardiaca` (0-300), `frecuencia_respiratoria` (0-100), `presion_sistolica` (0-300),
+`presion_diastolica` (0-200, no mayor que la sistólica), `temperatura` (25-45), `saturacion_oxigeno` (0-100),
+`conciencia` (`alerta`, `voz`, `dolor`, `inconsciente`), `sintomas` (lista de textos, p. ej. `"Dificultad para respirar"`),
+`sindrome` (`febril`, `gastrointestinal`, `respiratorio`, `trauma`, `otro`),
+`estado_clinico` (`estable`, `observacion`, `grave`, `critico`), `requiere_traslado`, `notas`.
+La edad y si es gestante se toman del registro del paciente.
+
+Respuesta (`evaluacion`): `signos_vitales`, `sintomas`, `sugerencia` (`nivel`, `puntaje` 0-100, `version`,
+`confianza`, `motivos` con la regla y su texto, `datos_faltantes`, `avisos`) y `decision`
+(`nivel_final`, quién y cuándo confirmó). `GET /api/pacientes` y `GET /api/pacientes/:id` incluyen `triage`
+(`nivel_sugerido`, `nivel_final`, `nivel_vigente`, `confirmado`) y la lista admite `?nivel=verde|amarillo|rojo|negro`.
+
+### Reglas (`reglas-v1`)
+
+El nivel es el más grave de las reglas que se activan; los umbrales cambian en menores de 12 años.
+Resumen para un adulto:
+
+| Nivel | Se activa con |
+|---|---|
+| Negro | Inconsciente y sin pulso o sin respiración |
+| Rojo | Responde solo al dolor o inconsciente; saturación < 90 %; respiración < 8 o > 30; pulso < 40 o > 140; sistólica ≤ 89; temperatura ≥ 40 o ≤ 35; dificultad para respirar con saturación < 94 %; gestante con 160/110 o más; estado clínico crítico |
+| Amarillo | Responde solo a la voz; saturación 90-94 %; respiración 21-30; pulso 111-140 o 40-50; sistólica 90-99 o ≥ 180; temperatura ≥ 38,5; dificultad para respirar, deshidratación o herida visible; diarrea con vómito; menor de 5 o mayor de 64 con fiebre o diarrea; gestante con 140/90 o más; estado grave; requiere traslado |
+| Verde | Ninguna regla activada |
+
+Son criterios simplificados de apoyo: deben validarse con el equipo médico antes de un uso real. Con pocos
+signos vitales la `confianza` baja y un resultado verde trae un aviso (no descarta gravedad). Pruebas del motor: `npm test`
+dentro de `backend/`.
+
 ## Proteger una ruta nueva (para el equipo)
 
 ```js

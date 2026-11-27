@@ -7,6 +7,7 @@ const {
   validarCampos,
 } = require("./validacion");
 const { validarListas } = require("./validarHistoria");
+const { NIVELES } = require("../services/triageReglas");
 
 const SEXOS = ["femenino", "masculino", "otro"];
 const TIPOS_SANGRE = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -68,12 +69,16 @@ function validarFiltrosPacientes(req, res, next) {
   const albergue = leerEnteroQuery(req.query.albergue_id, "albergue_id");
   const grupo = leerEnteroQuery(req.query.grupo_familiar_id, "grupo_familiar_id");
   const cerrado = leerBooleanoQuery(req.query.cerrado, "cerrado");
-  const error = pagina.error || albergue.error || grupo.error || cerrado.error;
+  const nivel = req.query.nivel;
+  const errorNivel =
+    nivel !== undefined && !NIVELES.includes(nivel) ? `nivel debe ser uno de: ${NIVELES.join(", ")}` : null;
+  const error = pagina.error || albergue.error || grupo.error || cerrado.error || errorNivel;
   if (error) return res.status(400).json({ error });
   req.filtros = {
     albergue_id: albergue.valor,
     grupo_familiar_id: grupo.valor,
     cerrado: cerrado.valor,
+    nivel,
     texto: leerTexto(req.query.q),
     limite: pagina.limite,
     desplazamiento: pagina.desplazamiento,

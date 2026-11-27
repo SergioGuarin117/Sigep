@@ -85,8 +85,13 @@ function validarCampos(cuerpo, esquema, { parcial = false } = {}) {
         }
         break;
       case "entero":
-        if (!Number.isInteger(valor) || valor < (regla.min ?? 1)) {
-          return { error: `${campo} debe ser un entero de ${regla.min ?? 1} o más` };
+        if (!Number.isInteger(valor) || valor < (regla.min ?? 1) || valor > (regla.max ?? Infinity)) {
+          return {
+            error:
+              regla.max === undefined
+                ? `${campo} debe ser un entero de ${regla.min ?? 1} o más`
+                : `${campo} debe ser un entero entre ${regla.min ?? 1} y ${regla.max}`,
+          };
         }
         break;
       case "numero":
