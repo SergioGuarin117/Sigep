@@ -2,12 +2,18 @@
 const express = require("express");
 const authRoutes = require("./authRoutes");
 const usuarioRoutes = require("./usuarioRoutes");
+const albergueRoutes = require("./albergueRoutes");
+const grupoFamiliarRoutes = require("./grupoFamiliarRoutes");
+const pacienteRoutes = require("./pacienteRoutes");
 const healthRoutes = require("./healthRoutes");
 
 const router = express.Router();
 
 router.use("/api/auth", authRoutes);
 router.use("/api/usuarios", usuarioRoutes);
+router.use("/api/albergues", albergueRoutes);
+router.use("/api/grupos-familiares", grupoFamiliarRoutes);
+router.use("/api/pacientes", pacienteRoutes);
 router.use("/", healthRoutes);
 
 module.exports = router;

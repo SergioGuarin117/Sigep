@@ -10,8 +10,16 @@ const ROLES = Object.freeze({
 
 const ROLES_VALIDOS = Object.freeze(Object.values(ROLES));
 
+// Roles que trabajan con el censo de pacientes y grupos familiares.
+const ROLES_CENSO = Object.freeze([
+  ROLES.BRIGADISTA,
+  ROLES.MEDICO_TRIAGE,
+  ROLES.ADMIN_ALBERGUE,
+  ROLES.COORDINADOR_MUNICIPAL,
+]);
+
 // El registro publico siempre crea usuarios con el rol de menor privilegio.
 // Solo un coordinador municipal podra cambiarlo (rama auth-gestion-usuarios-api).
 const ROL_POR_DEFECTO = ROLES.BRIGADISTA;
 
-module.exports = { ROLES, ROLES_VALIDOS, ROL_POR_DEFECTO };
+module.exports = { ROLES, ROLES_VALIDOS, ROLES_CENSO, ROL_POR_DEFECTO };
