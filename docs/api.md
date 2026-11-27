@@ -56,6 +56,67 @@ Los usuarios nuevos solo se crean por el registro público (rol `brigadista`); e
 después les cambia el rol. **El rol y el estado se leen de la BD en cada petición**, así que un
 cambio aplica de inmediato aunque el usuario tenga un token anterior.
 
+## Albergues (`/api/albergues`)
+
+| Método y ruta | Quién | Qué hace |
+|---|---|---|
+| `GET /api/albergues` | cualquier usuario con sesión | Lista albergues. Filtros: `activo=true\|false`, `q` (nombre o dirección) |
+| `GET /api/albergues/:id` | cualquier usuario con sesión | Detalle |
+| `POST /api/albergues` | `coordinador_municipal` | Crea un albergue |
+| `PATCH /api/albergues/:id` | `coordinador_municipal` | Edita cualquier subconjunto de campos |
+
+Cuerpo de `POST` / `PATCH`: `nombre` (obligatorio al crear, único), `direccion`, `capacidad_personas` (entero ≥ 0),
+`latitud` y `longitud` (siempre juntas; ambas `null` para quitar la ubicación), `activo`.
+
+Cada albergue trae `personas_alojadas` (pacientes con caso abierto asignados a él) y
+`ocupacion_porcentaje` (`null` si la capacidad es 0). Errores: `400` dato inválido, `403`, `404`,
+`409` nombre repetido.
+
+## Censo: grupos familiares y pacientes
+
+Las rutas `/api/grupos-familiares` y `/api/pacientes` las usan `brigadista`, `medico_triage`,
+`admin_albergue` y `coordinador_municipal`. El `director_ips` recibe `403`: no ve datos individuales de salud.
+Las listas aceptan `limite` (1 a 200, por defecto 50) y `desplazamiento`, y responden `{ total, limite, desplazamiento, ... }`.
+
+### Grupos familiares
+
+| Método y ruta | Qué hace |
+|---|---|
+| `GET /api/grupos-familiares` | Lista. Filtros: `albergue_id`, `q` (código o zona) |
+| `GET /api/grupos-familiares/:id` | Detalle con la lista de `integrantes` |
+| `POST /api/grupos-familiares` | Registra un grupo. El `codigo` (`GF-0001`) lo genera el servidor |
+| `PATCH /api/grupos-familiares/:id` | Edita |
+
+Campos: `albergue_id`, `zona_afectacion` (para quienes no están en albergue), `latitud` + `longitud`,
+`numero_integrantes` (≥ 1, por defecto 1), `observaciones`.
+
+### Pacientes
+
+| Método y ruta | Qué hace |
+|---|---|
+| `GET /api/pacientes` | Lista. Filtros: `albergue_id`, `grupo_familiar_id`, `cerrado=true\|false`, `q` (nombre, apellido o documento) |
+| `GET /api/pacientes/:id` | Detalle con `historia_clinica` |
+| `POST /api/pacientes` | Registra un paciente (con historia clínica opcional) |
+| `PATCH /api/pacientes/:id` | Edita datos; `cerrado` solo lo cambian médico, administrador de albergue o coordinador |
+
+Campos: `nombres` y `apellidos` (obligatorios), `tipo_documento` + `numero_documento` (juntos; el par es único),
+`fecha_nacimiento` (`AAAA-MM-DD`, no futura), `sexo` (`femenino`, `masculino`, `otro`), `tipo_sangre` (`A+` … `O-`),
+`telefono`, `gestante`, `condiciones_previas`, `observaciones`, `grupo_familiar_id`, `albergue_id`,
+`datos_ocr` (objeto JSON con el texto extraído y su confianza). La respuesta agrega `codigo` (`P-001`),
+`nombre_completo` y `edad`. Errores: `400`, `403`, `404`, `409` (documento repetido).
+
+### Historia clínica
+
+Al crear un paciente se pueden enviar las listas `morbilidades`, `medicamentos` y `vacunas` (máximo 30 cada una);
+se guardan todas o ninguna. También se agregan una a una:
+
+| Método y ruta | Cuerpo |
+|---|---|
+| `POST /api/pacientes/:id/morbilidades` | `descripcion` (obligatoria), `codigo_cie10`, `desde` |
+| `POST /api/pacientes/:id/medicamentos` | `medicamento` (obligatorio), `dosis`, `frecuencia`, `requiere_suministro` |
+| `POST /api/pacientes/:id/vacunas` | `vacuna` (obligatoria), `dosis_numero`, `fecha_aplicacion` |
+| `DELETE /api/pacientes/:id/<tipo>/:itemId` | Solo médico, administrador de albergue o coordinador |
+
 ## Proteger una ruta nueva (para el equipo)
 
 ```js
