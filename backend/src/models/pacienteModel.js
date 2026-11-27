@@ -9,7 +9,19 @@ const COLUMNAS = `
   TO_CHAR(p.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
   DATE_PART('year', AGE(p.fecha_nacimiento))::int AS edad,
   p.sexo, p.tipo_sangre, p.telefono, p.gestante, p.condiciones_previas, p.observaciones,
-  p.cerrado, p.datos_ocr, p.registrado_por, p.creado_en, p.actualizado_en`;
+  p.cerrado, p.datos_ocr, p.registrado_por, p.creado_en, p.actualizado_en,
+  t.triage_id, t.triage_sugerido, t.triage_final, t.triage_evaluado_en`;
+
+// Ultima evaluacion de triage de cada paciente (si tiene alguna).
+const UNION_TRIAGE = `
+  LEFT JOIN LATERAL (
+    SELECT e.id AS triage_id, e.nivel_sugerido_ia AS triage_sugerido,
+           e.nivel_final AS triage_final, e.evaluado_en AS triage_evaluado_en
+    FROM evaluaciones_triage e
+    WHERE e.paciente_id = p.id
+    ORDER BY e.evaluado_en DESC, e.id DESC
+    LIMIT 1
+  ) t ON TRUE`;
 
 // Campos que se pueden escribir (lista blanca: se usa para armar el SQL).
 const COLUMNAS_ESCRIBIBLES = [
@@ -58,7 +70,7 @@ async function crearCompleto(datos, usuarioId, historia) {
   }
 }
 
-async function listar({ albergue_id, grupo_familiar_id, cerrado, texto, limite, desplazamiento }) {
+async function listar({ albergue_id, grupo_familiar_id, cerrado, nivel, texto, limite, desplazamiento }) {
   const condiciones = [];
   const valores = [];
   const agregar = (sql, valor) => {
@@ -69,6 +81,8 @@ async function listar({ albergue_id, grupo_familiar_id, cerrado, texto, limite, 
   if (albergue_id !== undefined) agregar("p.albergue_id = ?", albergue_id);
   if (grupo_familiar_id !== undefined) agregar("p.grupo_familiar_id = ?", grupo_familiar_id);
   if (cerrado !== undefined) agregar("p.cerrado = ?", cerrado);
+  // nivel vigente = el confirmado por el medico o, mientras no lo haya, el sugerido.
+  if (nivel !== undefined) agregar("COALESCE(t.triage_final, t.triage_sugerido) = ?", nivel);
   if (texto) {
     valores.push(`%${escaparLike(texto)}%`);
     const n = valores.length;
@@ -83,6 +97,7 @@ async function listar({ albergue_id, grupo_familiar_id, cerrado, texto, limite, 
   const resultado = await pool.query(
     `SELECT ${COLUMNAS}, COUNT(*) OVER() AS total
      FROM pacientes p
+     ${UNION_TRIAGE}
      ${where}
      ORDER BY p.creado_en DESC, p.id DESC
      LIMIT $${valores.length - 1} OFFSET $${valores.length}`,
@@ -93,7 +108,7 @@ async function listar({ albergue_id, grupo_familiar_id, cerrado, texto, limite, 
 }
 
 async function buscarPorId(id, cliente = pool) {
-  const resultado = await cliente.query(`SELECT ${COLUMNAS} FROM pacientes p WHERE p.id = $1`, [id]);
+  const resultado = await cliente.query(`SELECT ${COLUMNAS} FROM pacientes p ${UNION_TRIAGE} WHERE p.id = $1`, [id]);
   return resultado.rows[0] || null;
 }
 

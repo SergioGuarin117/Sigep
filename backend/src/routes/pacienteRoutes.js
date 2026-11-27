@@ -9,6 +9,8 @@ const {
   validarCambiosPaciente,
 } = require("../middlewares/validarCenso");
 const { validarRegistro, validarTipo } = require("../middlewares/validarHistoria");
+const triageController = require("../controllers/triageController");
+const { validarEvaluacion } = require("../middlewares/validarTriage");
 const { ROLES_CENSO } = require("../constants/roles");
 
 const router = express.Router();
@@ -21,6 +23,10 @@ router.get("/", validarFiltrosPacientes, pacienteController.listar);
 router.get("/:id", idPaciente, pacienteController.obtener);
 router.post("/", validarCreacionPaciente, pacienteController.crear);
 router.patch("/:id", idPaciente, validarCambiosPaciente, pacienteController.actualizar);
+
+// Triage del paciente. Va ANTES de la ruta generica /:id/:tipo de la historia clinica.
+router.post("/:id/triage", idPaciente, validarEvaluacion, triageController.evaluar);
+router.get("/:id/triage", idPaciente, triageController.historial);
 
 // Historia clinica: /api/pacientes/:id/(morbilidades|medicamentos|vacunas)
 router.post("/:id/:tipo", idPaciente, validarRegistro, pacienteController.agregarHistoria);

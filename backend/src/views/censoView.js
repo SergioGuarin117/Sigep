@@ -41,6 +41,21 @@ function presentarPaciente(p) {
     registrado_por: p.registrado_por,
     creado_en: p.creado_en,
     actualizado_en: p.actualizado_en,
+    triage: presentarTriageVigente(p),
+  };
+}
+
+// Resumen del triage mas reciente del paciente; null si nunca se evaluo.
+// nivel_vigente es el confirmado por el medico o, si falta, el sugerido (confirmado=false).
+function presentarTriageVigente(p) {
+  if (!p.triage_id) return null;
+  return {
+    evaluacion_id: p.triage_id,
+    nivel_sugerido: p.triage_sugerido,
+    nivel_final: p.triage_final,
+    nivel_vigente: p.triage_final || p.triage_sugerido,
+    confirmado: p.triage_final !== null,
+    evaluado_en: p.triage_evaluado_en,
   };
 }
 
