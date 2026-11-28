@@ -1,4 +1,21 @@
 // VISTA: forma en que se presenta una evaluacion de triage en las respuestas JSON.
+function presentarSugerenciaIA(ia, nivelReglas) {
+  if (!ia) return { disponible: false, motivo: "no_evaluada" };
+  if (!ia.disponible) return { disponible: false, motivo: ia.motivo || "no_disponible" };
+  return {
+    disponible: true,
+    nivel: ia.nivel,
+    probabilidades: ia.probabilidades,
+    puntaje: ia.puntaje,
+    confianza: ia.confianza,
+    factores: ia.factores,
+    avisos: ia.avisos,
+    version: ia.version,
+    // Si difiere de las reglas, el medico debe mirar con mas atencion.
+    coincide_con_reglas: ia.nivel === nivelReglas,
+  };
+}
+
 function presentarEvaluacion(e) {
   const explicacion = e.explicacion_ia || {};
   return {
@@ -31,6 +48,8 @@ function presentarEvaluacion(e) {
       datos_faltantes: explicacion.datos_faltantes || [],
       avisos: explicacion.avisos || [],
     },
+    // Segunda opinion del modelo de IA (aparte de las reglas). Las evaluaciones anteriores a la IA no la traen.
+    sugerencia_ia: presentarSugerenciaIA(explicacion.ia, e.nivel_sugerido_ia),
     // La sugerencia no es una decision: hasta que un medico confirma, nivel_final es null.
     pendiente_confirmacion: e.nivel_final === null,
     decision:

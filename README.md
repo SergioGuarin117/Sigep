@@ -10,7 +10,7 @@ epidemiologico posdesastre y analitica predictiva con IA.
 |---|---|---|
 | `android/` | Cliente movil (frontend) | Kotlin + Jetpack Compose |
 | `backend/` | API REST y autenticacion | Node.js (Express) + JWT |
-| `ai-service/` | Triage, OCR y deteccion de brotes | Python (FastAPI) - pendiente |
+| `ai-service/` | Triage asistido (listo); OCR y deteccion de brotes (pendientes) | Python (FastAPI) |
 | `docs/` | Documentacion y alcance | Markdown |
 | `docker-compose.yml` | Base de datos y backend | PostgreSQL + Docker |
 

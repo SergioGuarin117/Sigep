@@ -21,6 +21,13 @@ router.get(
   triageController.pendientes
 );
 
+// Estado del servicio de IA.
+router.get(
+  "/ia/estado",
+  permitirRoles(ROLES.MEDICO_TRIAGE, ROLES.ADMIN_ALBERGUE, ROLES.COORDINADOR_MUNICIPAL),
+  triageController.estadoIA
+);
+
 // Confirmar el nivel final es una decision medica: solo el medico de triage.
 router.patch(
   "/:id/confirmar",

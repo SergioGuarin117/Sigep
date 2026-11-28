@@ -7,7 +7,7 @@ Cada rama agrupa un bloque coherente de trabajo (entre 2 y 5 commits). Se integr
 **Convención de nombres:** `feature/`, `chore/`, `fix/`, `test/`, `docs/` + descripción en minúsculas con guiones. **Commits:** `tipo(alcance): resumen` (por ejemplo `feat(api): crear paciente`).
 
 
-## Hecho (11 ramas)
+## Hecho (12 ramas)
 
 | # | Rama | Qué incluye | Capa | Estado |
 |---|---|---|---|---|
@@ -22,13 +22,13 @@ Cada rama agrupa un bloque coherente de trabajo (entre 2 y 5 commits). Se integr
 | 8 | `feature/api-albergues-y-censo` | Albergues, grupos familiares, pacientes e historia clínica | Backend | ✅ en `main` |
 | 9 | `feature/android-albergues-y-censo` | Albergues y Casos con datos reales y registro del censo enviado a la API | Android | ✅ en `main` |
 | 10 | `feature/triage-reglas-y-api` | Motor de reglas Verde/Amarillo/Rojo/Negro, evaluación y confirmación del médico | Backend | ✅ en `main` |
-| 11 | `feature/android-triage` | 4 niveles, signos vitales, confirmación del médico e historial | Android | ✅ en revisión |
+| 11 | `feature/android-triage` | 4 niveles, signos vitales, confirmación del médico e historial | Android | ✅ en `main` |
+| 12 | `feature/ai-triage` | Servicio FastAPI en Docker, modelo de triage, `/triage/predecir` y llamada desde el backend | IA + Backend | ✅ en revisión |
 
-## Por hacer (14 ramas)
+## Por hacer (13 ramas)
 
 | # | Rama | Qué incluye | Capa | Depende de |
 |---|---|---|---|---|
-| 12 | `feature/ai-triage` | Servicio FastAPI en Docker, modelo de triage, `/triage/predecir` y llamada desde el backend | IA + Backend | 10 |
 | 13 | `feature/android-sugerencia-ia` | Sugerencia de la IA y su explicación al médico | Android | 11, 12 |
 | 14 | `feature/android-ocr` | Captura con CameraX, texto con ML Kit y autocompletar el registro | Android | 9 |
 | 15 | `feature/api-capacidad-y-riesgo` | IPS (camas, inventario, personal) y factores de riesgo del albergue | Backend | 8 |
@@ -42,7 +42,7 @@ Cada rama agrupa un bloque coherente de trabajo (entre 2 y 5 commits). Se integr
 | 23 | `test/seguridad-y-pruebas` | Auditoría de accesos a datos de salud, pruebas de API/IA/Android y prueba de carga | Backend + Pruebas | 12, 17 |
 | 24 | `docs/api-y-manuales` | OpenAPI, manuales de los 5 roles e informe final | Docs | — |
 
-**Total: 25 ramas** (11 hechas, 14 por hacer).
+**Total: 25 ramas** (12 hechas, 13 por hacer).
 
 ## Orden sugerido
 

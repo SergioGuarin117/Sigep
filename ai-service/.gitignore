@@ -1,0 +1,3 @@
+# Modelo entrenado (se genera con python -m app.entrenar)
+app/artefactos/
+.pytest_cache/

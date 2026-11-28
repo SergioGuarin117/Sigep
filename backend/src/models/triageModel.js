@@ -22,7 +22,8 @@ const CAMPOS_ESCRIBIBLES = [
 ];
 
 // datos: campos clinicos validados; sugerencia: resultado de evaluarTriage.
-async function crear({ pacienteId, albergueId, usuarioId, datos, sugerencia }) {
+// ia: resultado de iaTriage.predecirTriage (se guarda dentro de explicacion_ia, sin cambiar la tabla).
+async function crear({ pacienteId, albergueId, usuarioId, datos, sugerencia, ia = null }) {
   const columnas = CAMPOS_ESCRIBIBLES.filter((c) => c in datos && datos[c] !== null && datos[c] !== undefined);
   const valores = columnas.map((c) => datos[c]);
 
@@ -38,6 +39,7 @@ async function crear({ pacienteId, albergueId, usuarioId, datos, sugerencia }) {
       datos_faltantes: sugerencia.datos_faltantes,
       confianza: sugerencia.confianza,
       avisos: sugerencia.avisos,
+      ia,
     }),
     sugerencia.version
   );
