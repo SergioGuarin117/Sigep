@@ -23,58 +23,86 @@ val SINTOMAS = listOf(
 )
 val NIVELES_CONCIENCIA = listOf("Alerta", "Responde a la voz", "Responde al dolor", "Inconsciente")
 
+/** Nivel de triage (escala del servidor). Lo sugiere el sistema y lo confirma un médico. */
 enum class Triage(
-    val codigo: String,
+    val valor: String,
     val etiqueta: String,
     val descripcion: String,
     val mensaje: String,
     val color: Color,
     val fondo: Color
 ) {
-    P1(
-        "P1", "Inmediata", "Atención o evaluación inmediata",
+    ROJO(
+        "rojo", "Inmediata", "Atención o evaluación inmediata",
         "Atención inmediata por el personal sanitario.",
         Color(0xFFC83D48), Color(0xFFFBE9EA)
     ),
-    P2(
-        "P2", "Prioritaria", "Requiere atención prioritaria",
+    AMARILLO(
+        "amarillo", "Prioritaria", "Requiere atención prioritaria",
         "Atención sin esperas prolongadas.",
         Color(0xFFB8741A), Color(0xFFFDF0DE)
     ),
-    P3(
-        "P3", "No urgente", "Puede esperar según valoración del personal",
+    VERDE(
+        "verde", "No urgente", "Puede esperar según valoración del personal",
         "Puede esperar valoración del personal.",
         Color(0xFF2E7D55), Color(0xFFE5F4EB)
-    )
+    ),
+    NEGRO(
+        "negro", "Sin signos vitales", "Sin signos vitales o fallecido",
+        "Verificar y atender según protocolo.",
+        Color(0xFF2B2B2B), Color(0xFFE6E6E6)
+    );
+
+    /** Texto corto para etiquetas: "Rojo · Inmediata". */
+    val titulo: String get() = "${valor.replaceFirstChar { it.uppercase() }} · $etiqueta"
+
+    companion object {
+        fun desdeValor(valor: String?): Triage? = entries.firstOrNull { it.valor == valor }
+    }
 }
 
-enum class Sindrome(val etiqueta: String) {
-    DIARREICO("Diarreico agudo"),
-    RESPIRATORIO("Respiratorio agudo"),
-    FEBRIL("Febril"),
-    TRAUMA("Trauma o lesión"),
-    OTRO("Otro / sin clasificar")
+enum class Sindrome(val valor: String, val etiqueta: String) {
+    GASTROINTESTINAL("gastrointestinal", "Diarreico agudo"),
+    RESPIRATORIO("respiratorio", "Respiratorio agudo"),
+    FEBRIL("febril", "Febril"),
+    TRAUMA("trauma", "Trauma o lesión"),
+    OTRO("otro", "Otro / sin clasificar");
+
+    companion object {
+        fun desdeValor(valor: String?): Sindrome? = entries.firstOrNull { it.valor == valor }
+    }
 }
 
-enum class EstadoClinico(val etiqueta: String, val color: Color) {
-    ESTABLE("Estable", Color(0xFF2E7D55)),
-    OBSERVACION("En observación", Color(0xFF304A78)),
-    GRAVE("Grave", Color(0xFFB8741A)),
-    CRITICO("Crítico", Color(0xFFC83D48))
+enum class EstadoClinico(val valor: String, val etiqueta: String, val color: Color) {
+    ESTABLE("estable", "Estable", Color(0xFF2E7D55)),
+    OBSERVACION("observacion", "En observación", Color(0xFF304A78)),
+    GRAVE("grave", "Grave", Color(0xFFB8741A)),
+    CRITICO("critico", "Crítico", Color(0xFFC83D48));
+
+    companion object {
+        fun desdeValor(valor: String?): EstadoClinico? = entries.firstOrNull { it.valor == valor }
+    }
 }
 
-data class Condicion(
-    val sindrome: Sindrome,
-    val sintomas: List<String>,
-    val temperatura: Double?,
-    val conciencia: String,
+/** Valores que el servidor espera para cada nivel de conciencia (mismo orden que NIVELES_CONCIENCIA). */
+val VALORES_CONCIENCIA = listOf("alerta", "voz", "dolor", "inconsciente")
+
+fun etiquetaConciencia(valor: String?): String =
+    VALORES_CONCIENCIA.indexOf(valor).let { if (it >= 0) NIVELES_CONCIENCIA[it] else "Sin dato" }
+
+/** Resumen de la última evaluación de triage del paciente (lo calcula y guarda el servidor). */
+data class ResumenTriage(
+    val evaluacionId: Long,
+    val sugerido: Triage,
+    val confirmado: Triage?,
+    val sindrome: Sindrome?,
+    val estado: EstadoClinico?,
     val requiereTraslado: Boolean,
-    val gestante: Boolean,
-    val condicionesPrevias: String,
-    val estado: EstadoClinico,
-    val notas: String,
-    val actualizadoEn: Long
-)
+    val evaluadoEn: Long
+) {
+    /** El nivel que vale: el confirmado por el médico o, mientras tanto, el sugerido. */
+    val vigente: Triage get() = confirmado ?: sugerido
+}
 
 data class Paciente(
     val id: Long,
@@ -84,14 +112,17 @@ data class Paciente(
     val tipoSangre: String,
     val centro: String,
     val observaciones: String,
-    val triage: Triage,
     val creadoEn: Long,
     val cerrado: Boolean = false,
-    val condicion: Condicion? = null
+    val gestante: Boolean = false,
+    val condicionesPrevias: String = "",
+    val triage: ResumenTriage? = null
 ) {
     val codigo: String get() = "P-%03d".format(numero)
     val codigoCaso: String get() = "C-%03d".format(numero)
     val nombreCompleto: String get() = "$nombre $apellido"
+    val nivel: Triage? get() = triage?.vigente
+    val porConfirmar: Boolean get() = triage != null && triage.confirmado == null
 }
 
 enum class NivelAlerta(val etiqueta: String, val orden: Int, val color: Color) {

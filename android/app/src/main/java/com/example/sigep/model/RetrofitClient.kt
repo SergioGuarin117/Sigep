@@ -50,4 +50,6 @@ object RetrofitClient {
     val alberguesApi: AlberguesApi by lazy { retrofit.create(AlberguesApi::class.java) }
 
     val pacientesApi: PacientesApi by lazy { retrofit.create(PacientesApi::class.java) }
+
+    val triageApi: TriageApi by lazy { retrofit.create(TriageApi::class.java) }
 }

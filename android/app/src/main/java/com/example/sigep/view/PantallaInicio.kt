@@ -47,7 +47,7 @@ fun ContenidoInicio(
         .filter { it.estado != EstadoAlerta.RESUELTA }
         .sortedWith(compareBy<Alerta> { it.nivel.orden }.thenByDescending { it.creadaEn })
     val pacientesActivos = repo.pacientes.filter { !it.cerrado }
-    val inmediatos = pacientesActivos.filter { it.triage == Triage.P1 }
+    val inmediatos = pacientesActivos.filter { it.nivel == Triage.ROJO }
     val enCampo = repo.equipos.count { it.estado == EstadoEquipo.EN_CAMPO }
 
     val hora = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -153,10 +153,10 @@ fun ContenidoInicio(
                             Modifier
                                 .fillMaxHeight()
                                 .width(4.dp)
-                                .background(Triage.P1.color, RoundedCornerShape(4.dp))
+                                .background(Triage.ROJO.color, RoundedCornerShape(4.dp))
                         )
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            EtiquetaTriage(Triage.P1)
+                            EtiquetaTriage(Triage.ROJO)
                             Text(
                                 paciente.nombreCompleto,
                                 color = TextoOscuro,

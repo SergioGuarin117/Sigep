@@ -40,7 +40,21 @@ data class PacienteDto(
     val observaciones: String? = null,
     val albergue_id: Long? = null,
     val cerrado: Boolean = false,
-    val creado_en: String? = null
+    val creado_en: String? = null,
+    val gestante: Boolean = false,
+    val condiciones_previas: String? = null,
+    val triage: TriageResumenDto? = null
+)
+
+/** Resumen del triage vigente dentro de un paciente. */
+data class TriageResumenDto(
+    val evaluacion_id: Long,
+    val nivel_sugerido: String? = null,
+    val nivel_final: String? = null,
+    val sindrome: String? = null,
+    val estado_clinico: String? = null,
+    val requiere_traslado: Boolean = false,
+    val evaluado_en: String? = null
 )
 
 data class ListaPacientesRespuesta(
@@ -57,7 +71,12 @@ data class PacienteNuevo(
     val albergue_id: Long? = null
 )
 
-data class CambioPaciente(val cerrado: Boolean)
+/** Cuerpo de PATCH api/pacientes/{id}: los campos en null no se envian. */
+data class CambioPaciente(
+    val cerrado: Boolean? = null,
+    val gestante: Boolean? = null,
+    val condiciones_previas: String? = null
+)
 
 data class PacienteRespuesta(
     val mensaje: String? = null,

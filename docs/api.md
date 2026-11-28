@@ -141,7 +141,7 @@ La edad y si es gestante se toman del registro del paciente.
 Respuesta (`evaluacion`): `signos_vitales`, `sintomas`, `sugerencia` (`nivel`, `puntaje` 0-100, `version`,
 `confianza`, `motivos` con la regla y su texto, `datos_faltantes`, `avisos`) y `decision`
 (`nivel_final`, quién y cuándo confirmó). `GET /api/pacientes` y `GET /api/pacientes/:id` incluyen `triage`
-(`nivel_sugerido`, `nivel_final`, `nivel_vigente`, `confirmado`) y la lista admite `?nivel=verde|amarillo|rojo|negro`.
+(`nivel_sugerido`, `nivel_final`, `nivel_vigente`, `confirmado`, `sindrome`, `estado_clinico`, `requiere_traslado`) y la lista admite `?nivel=verde|amarillo|rojo|negro`.
 
 ### Reglas (`reglas-v1`)
 

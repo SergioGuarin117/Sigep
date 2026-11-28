@@ -4,6 +4,7 @@ import com.example.sigep.model.*
 import com.example.sigep.controller.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun PantallaCasos(
     repo: RepositorioSigep,
+    rol: Rol,
     ruta: RutaCasos,
     onRuta: (RutaCasos) -> Unit,
     borrador: BorradorPaciente,
@@ -93,12 +95,12 @@ fun PantallaCasos(
                     esNuevo = ruta.esNuevo,
                     repo = repo,
                     onGuardado = {
-                        onMensaje("Condición de ${paciente.nombreCompleto} guardada.")
+                        onMensaje("Evaluación de ${paciente.nombreCompleto} guardada.")
                         onRuta(if (ruta.esNuevo) RutaCasos.Lista else RutaCasos.Detalle(paciente.id))
                     },
                     onDespues = {
                         if (ruta.esNuevo) {
-                            onMensaje("${paciente.nombreCompleto} quedó registrado. La condición está pendiente.")
+                            onMensaje("${paciente.nombreCompleto} quedó registrado. Falta su evaluación clínica.")
                             onRuta(RutaCasos.Lista)
                         } else {
                             onRuta(RutaCasos.Detalle(paciente.id))
@@ -110,6 +112,7 @@ fun PantallaCasos(
 
         is RutaCasos.Detalle -> VistaDetalle(
             repo = repo,
+            rol = rol,
             id = ruta.pacienteId,
             onEditarCondicion = { onRuta(RutaCasos.Condicion(ruta.pacienteId, esNuevo = false)) }
         )
@@ -154,19 +157,28 @@ private fun VistaPacientes(
     onAbrir: (Long) -> Unit
 ) {
     var busqueda by rememberSaveable { mutableStateOf("") }
-    var filtro by rememberSaveable { mutableIntStateOf(0) } // 0 = todos, 1..3 = P1..P3
+    // 0 = todos, 1..4 = rojo/amarillo/verde/negro (orden de Triage.entries), 5 = sin evaluar, 6 = por confirmar
+    var filtro by rememberSaveable { mutableIntStateOf(0) }
 
     val todos = repo.pacientes
     val triageFiltro = Triage.entries.getOrNull(filtro - 1)
+    val sinEvaluar = todos.count { it.triage == null }
+    val porConfirmar = todos.count { it.porConfirmar }
     val texto = normalizar(busqueda.trim())
     val visibles = todos.filter { p ->
-        (triageFiltro == null || p.triage == triageFiltro) &&
+        (when (filtro) {
+            5 -> p.triage == null
+            6 -> p.porConfirmar
+            else -> triageFiltro == null || p.nivel == triageFiltro
+        }) &&
             (texto.isEmpty() ||
                 normalizar(p.nombre).contains(texto) ||
                 normalizar(p.apellido).contains(texto) ||
                 normalizar(p.nombreCompleto).contains(texto) ||
                 normalizar(p.codigo).contains(texto))
     }
+
+    val ordenados = if (filtro == 6) visibles.sortedBy { it.nivel?.ordinal ?: 99 } else visibles
 
     Column(Modifier.fillMaxSize()) {
         Column(
@@ -209,20 +221,25 @@ private fun VistaPacientes(
                 )
             )
 
-            Text("Filtrar por prioridad de triage", color = TextoSuave, fontSize = 12.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Filtrar por nivel de triage", color = TextoSuave, fontSize = 12.sp)
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 ChipSeleccion("Todos · ${todos.size}", filtro == 0, { filtro = 0 })
                 Triage.entries.forEachIndexed { i, t ->
                     ChipSeleccion(
-                        "${t.codigo} · ${todos.count { it.triage == t }}",
+                        "${t.valor.replaceFirstChar { it.uppercase() }} · ${todos.count { it.nivel == t }}",
                         filtro == i + 1,
                         { filtro = i + 1 },
                         t.color
                     )
                 }
+                ChipSeleccion("Sin evaluar · $sinEvaluar", filtro == 5, { filtro = 5 })
+                ChipSeleccion("Por confirmar · $porConfirmar", filtro == 6, { filtro = 6 })
             }
             Text(
-                "P1 Inmediata · P2 Prioritaria · P3 No urgente",
+                "Rojo inmediata · Amarillo prioritaria · Verde no urgente · Negro sin signos vitales",
                 color = TextoSuave,
                 fontSize = 11.sp
             )
@@ -244,7 +261,7 @@ private fun VistaPacientes(
                 }
             } else {
                 Tarjeta(Modifier.fillMaxWidth()) {
-                    visibles.forEachIndexed { i, p ->
+                    ordenados.forEachIndexed { i, p ->
                         if (i > 0) HorizontalDivider(color = BordeSuave)
                         FilaPaciente(p, onAbrir = { onAbrir(p.id) })
                     }
@@ -281,19 +298,23 @@ private fun FilaPaciente(p: Paciente, onAbrir: () -> Unit) {
                 color = TextoSuave,
                 fontSize = 12.sp
             )
-            val c = p.condicion
+            val t = p.triage
             when {
                 p.cerrado -> Text("Dado de alta", color = VerdeSigep, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                c == null -> Text("Condición pendiente", color = Color(0xFFB8741A), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                t == null -> Text("Sin evaluar", color = Color(0xFFB8741A), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 else -> Text(
-                    "${c.sindrome.etiqueta} · ${c.estado.etiqueta}",
-                    color = c.estado.color,
+                    listOfNotNull(t.sindrome?.etiqueta, t.estado?.etiqueta).joinToString(" · ")
+                        .ifBlank { "Evaluado" },
+                    color = t.estado?.color ?: TextoSuave,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
         }
-        EtiquetaTriage(p.triage)
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            p.nivel?.let { EtiquetaTriage(it) }
+            if (p.porConfirmar) Text("Por confirmar", color = Color(0xFFB8741A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -309,18 +330,18 @@ private fun VistaVigilancia(repo: RepositorioSigep, onAbrir: (Long) -> Unit) {
     val nuevos = repo.pacientes.count { ahora - it.creadoEn <= dia }
     val cerrados = repo.pacientes.count { it.cerrado }
 
-    val conCondicion = repo.pacientes.filter { it.condicion != null }
+    val conCondicion = repo.pacientes.filter { it.triage != null }
     val sinCondicion = repo.pacientes.size - conCondicion.size
     val texto = normalizar(busqueda.trim())
     val registros = conCondicion.filter { p ->
         texto.isEmpty() ||
             normalizar(p.codigoCaso).contains(texto) ||
-            normalizar(p.condicion?.sindrome?.etiqueta ?: "").contains(texto) ||
+            normalizar(p.triage?.sindrome?.etiqueta ?: "").contains(texto) ||
             normalizar(p.nombreCompleto).contains(texto)
     }
 
     val conteos = Sindrome.entries.map { s ->
-        s to activos.count { it.condicion?.sindrome == s }
+        s to activos.count { it.triage?.sindrome == s }
     }
     val maximo = (conteos.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1)
 
@@ -387,7 +408,7 @@ private fun VistaVigilancia(repo: RepositorioSigep, onAbrir: (Long) -> Unit) {
                 }
                 if (sinCondicion > 0) {
                     Text(
-                        "$sinCondicion ${if (sinCondicion == 1) "paciente" else "pacientes"} sin condición registrada.",
+                        "$sinCondicion ${if (sinCondicion == 1) "paciente" else "pacientes"} sin evaluación clínica.",
                         color = TextoSuave,
                         fontSize = 11.sp
                     )
@@ -399,19 +420,19 @@ private fun VistaVigilancia(repo: RepositorioSigep, onAbrir: (Long) -> Unit) {
 
         if (registros.isEmpty()) {
             Text(
-                if (conCondicion.isEmpty()) "Aún no hay casos con condición registrada." else "No se encontraron casos con esa búsqueda.",
+                if (conCondicion.isEmpty()) "Aún no hay casos con evaluación clínica." else "No se encontraron casos con esa búsqueda.",
                 color = TextoSuave,
                 fontSize = 13.sp
             )
         }
 
         registros.forEach { p ->
-            val c = p.condicion ?: return@forEach
+            val c = p.triage ?: return@forEach
             Tarjeta(Modifier.fillMaxWidth(), onClick = { onAbrir(p.id) }) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            "${p.codigoCaso} · ${c.sindrome.etiqueta}",
+                            "${p.codigoCaso} · ${c.sindrome?.etiqueta ?: "Sin clasificar"}",
                             color = TextoOscuro,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
@@ -436,6 +457,7 @@ private fun VistaVigilancia(repo: RepositorioSigep, onAbrir: (Long) -> Unit) {
 @Composable
 private fun VistaDetalle(
     repo: RepositorioSigep,
+    rol: Rol,
     id: Long,
     onEditarCondicion: () -> Unit
 ) {
@@ -467,7 +489,7 @@ private fun VistaDetalle(
                             Text(p.nombreCompleto, color = TextoOscuro, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                             Text("${p.codigo} · ${p.centro}", color = TextoSuave, fontSize = 12.sp)
                         }
-                        EtiquetaTriage(p.triage)
+                        p.nivel?.let { EtiquetaTriage(it) }
                     }
                     if (p.cerrado) Pastilla("Dado de alta", VerdeSigep)
                     HorizontalDivider(Modifier.padding(vertical = 4.dp), color = BordeSuave)
@@ -477,41 +499,10 @@ private fun VistaDetalle(
                 }
             }
 
-            Text("Condición", color = TextoOscuro, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            val c = p.condicion
-            if (c == null) {
-                BannerInfo(
-                    "Aún no se registra la condición de este paciente.",
-                    fondo = Color(0xFFFDF0DE),
-                    color = Color(0xFFB8741A)
-                )
-                BotonPrimario("Registrar condición", onClick = onEditarCondicion)
-            } else {
-                Tarjeta(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Pastilla(c.estado.etiqueta, c.estado.color)
-                            if (c.requiereTraslado) Pastilla("Requiere traslado", RojoSigep)
-                        }
-                        FilaDato("Cuadro principal", c.sindrome.etiqueta)
-                        FilaDato(
-                            "Síntomas",
-                            if (c.sintomas.isEmpty()) "Ninguno indicado" else c.sintomas.joinToString(", ")
-                        )
-                        FilaDato("Temperatura", c.temperatura?.let { "$it °C" } ?: "No registrada")
-                        FilaDato("Nivel de conciencia", c.conciencia)
-                        if (c.gestante) FilaDato("Gestante", "Sí")
-                        if (c.condicionesPrevias.isNotBlank()) FilaDato("Condiciones previas / alergias", c.condicionesPrevias)
-                        if (c.notas.isNotBlank()) FilaDato("Notas", c.notas)
-                        Text(
-                            "Actualizado ${formatoFechaHora(c.actualizadoEn)}",
-                            color = TextoSuave,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-                BotonPrimario("Editar condición", onClick = onEditarCondicion)
-            }
+            if (p.gestante) FilaDato("Gestante", "Sí")
+            if (p.condicionesPrevias.isNotBlank()) FilaDato("Condiciones previas / alergias", p.condicionesPrevias)
+
+            TarjetaTriage(repo, rol, p, onEditarCondicion)
 
             BotonPrimario(
                 texto = if (p.cerrado) "Reabrir caso" else "Dar de alta",
@@ -530,4 +521,209 @@ private fun VistaDetalle(
             errorAlta?.let { Text(it, color = RojoSigep, fontSize = 13.sp) }
         }
     }
+}
+
+// ---------------------------------------------------------------- Triage en el detalle
+
+private fun nivelDeValor(valor: String?): Triage? = Triage.desdeValor(valor)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TarjetaTriage(
+    repo: RepositorioSigep,
+    rol: Rol,
+    p: Paciente,
+    onEvaluar: () -> Unit
+) {
+    val alcance = rememberCoroutineScope()
+    var historial by remember(p.id, p.triage?.evaluacionId) { mutableStateOf<List<EvaluacionDto>?>(null) }
+    var errorHistorial by remember(p.id) { mutableStateOf<String?>(null) }
+    var confirmando by remember { mutableStateOf(false) }
+    var errorConfirmar by remember { mutableStateOf<String?>(null) }
+    var nivelElegido by remember(p.triage?.evaluacionId) { mutableStateOf<Triage?>(null) }
+
+    LaunchedEffect(p.id, p.triage?.evaluacionId) {
+        errorHistorial = null
+        when (val r = TriageController.historial(p.id)) {
+            is ResultadoHistorial.Exito -> historial = r.evaluaciones
+            is ResultadoHistorial.Falla -> errorHistorial = r.mensaje
+        }
+    }
+
+    Text("Triage", color = TextoOscuro, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+
+    val resumen = p.triage
+    if (resumen == null) {
+        BannerInfo(
+            "Este paciente aún no tiene evaluación clínica. Registra los signos vitales para obtener el nivel sugerido.",
+            fondo = Color(0xFFFDF0DE),
+            color = Color(0xFFB8741A)
+        )
+        if (!p.cerrado) BotonPrimario("Registrar evaluación", onClick = onEvaluar)
+        return
+    }
+
+    val ultima = historial?.firstOrNull { it.id == resumen.evaluacionId }
+
+    Tarjeta(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val vigente = resumen.vigente
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(vigente.fondo)
+                    .padding(12.dp)
+            ) {
+                Text(
+                    if (resumen.confirmado != null) "Nivel confirmado: ${vigente.titulo}" else "Nivel sugerido: ${vigente.titulo}",
+                    color = vigente.color,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Text(vigente.mensaje, color = vigente.color, fontSize = 12.sp)
+            }
+            if (resumen.confirmado == null) {
+                Text(
+                    "Pendiente de confirmación médica. La sugerencia es una ayuda y no reemplaza el criterio del médico.",
+                    color = Color(0xFFB8741A),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            } else {
+                val d = ultima?.decision
+                Text(
+                    "Confirmado${d?.confirmado_por_nombre?.let { " por $it" } ?: ""}" +
+                        (d?.confirmado_en?.let { " el ${formatoIso(it)}" } ?: ""),
+                    color = TextoSuave,
+                    fontSize = 12.sp
+                )
+                if (resumen.confirmado != resumen.sugerido) {
+                    Text("El sistema había sugerido ${resumen.sugerido.titulo}.", color = TextoSuave, fontSize = 12.sp)
+                }
+            }
+
+            if (ultima != null) {
+                val s = ultima.sugerencia
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    s.puntaje?.let { Pastilla("Puntaje $it/100", AzulSigep) }
+                    s.confianza?.let { Pastilla("Confianza $it", AzulSigep) }
+                    if (resumen.requiereTraslado) Pastilla("Requiere traslado", RojoSigep)
+                }
+                if (s.motivos.isNotEmpty()) {
+                    Text("Motivos", color = TextoOscuro, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    s.motivos.forEach { m ->
+                        val nivel = nivelDeValor(m.nivel)
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("• ", color = nivel?.color ?: TextoOscuro, fontSize = 13.sp)
+                            Text(m.descripcion, color = TextoOscuro, fontSize = 13.sp)
+                        }
+                    }
+                }
+                if (s.datos_faltantes.isNotEmpty()) {
+                    Text(
+                        "No se midió: ${s.datos_faltantes.joinToString(", ")}.",
+                        color = TextoSuave,
+                        fontSize = 12.sp
+                    )
+                }
+                s.avisos.forEach { Text("⚠ $it", color = Color(0xFFB8741A), fontSize = 12.sp) }
+                HorizontalDivider(Modifier.padding(vertical = 4.dp), color = BordeSuave)
+                DatosEvaluacion(ultima)
+            } else if (errorHistorial != null) {
+                Text(errorHistorial.orEmpty(), color = RojoSigep, fontSize = 12.sp)
+            } else {
+                Text("Cargando detalle…", color = TextoSuave, fontSize = 12.sp)
+            }
+        }
+    }
+
+    if (rol == Rol.MEDICO_TRIAGE && resumen.confirmado == null && !p.cerrado) {
+        Tarjeta(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Confirmar nivel de triage", color = TextoOscuro, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Elige el nivel final. Solo puede confirmarse una vez; para corregirlo registra una evaluación nueva.",
+                    color = TextoSuave,
+                    fontSize = 12.sp
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Triage.entries.forEach { t ->
+                        ChipSeleccion(
+                            "${t.valor.replaceFirstChar { it.uppercase() }} · ${t.etiqueta}",
+                            (nivelElegido ?: resumen.sugerido) == t,
+                            { nivelElegido = t },
+                            t.color
+                        )
+                    }
+                }
+                errorConfirmar?.let { Text(it, color = RojoSigep, fontSize = 12.sp) }
+                BotonPrimario(
+                    if (confirmando) "Confirmando…" else "Confirmar nivel",
+                    enabled = !confirmando,
+                    onClick = {
+                        alcance.launch {
+                            confirmando = true
+                            errorConfirmar = null
+                            val nivel = nivelElegido ?: resumen.sugerido
+                            when (val r = TriageController.confirmar(repo, p.id, resumen.evaluacionId, nivel)) {
+                                is ResultadoTriage.Exito -> Unit
+                                is ResultadoTriage.Falla -> errorConfirmar = r.mensaje
+                            }
+                            confirmando = false
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    if (!p.cerrado) BotonPrimario("Registrar nueva evaluación", onClick = onEvaluar)
+
+    val anteriores = historial.orEmpty().filter { it.id != resumen.evaluacionId }
+    if (anteriores.isNotEmpty()) {
+        Text("Evaluaciones anteriores", color = TextoOscuro, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Tarjeta(Modifier.fillMaxWidth()) {
+            anteriores.forEachIndexed { i, e ->
+                if (i > 0) HorizontalDivider(color = BordeSuave)
+                val sugerido = nivelDeValor(e.sugerencia.nivel)
+                val final = nivelDeValor(e.decision?.nivel_final)
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(formatoIso(e.evaluado_en), color = TextoOscuro, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text(
+                            e.evaluado_por_nombre?.let { "Por $it" } ?: "",
+                            color = TextoSuave,
+                            fontSize = 11.sp
+                        )
+                    }
+                    (final ?: sugerido)?.let { EtiquetaTriage(it) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DatosEvaluacion(e: EvaluacionDto) {
+    val v = e.signos_vitales
+    FilaDato("Cuadro principal", Sindrome.desdeValor(e.sindrome)?.etiqueta ?: "Sin clasificar")
+    FilaDato("Estado general", EstadoClinico.desdeValor(e.estado_clinico)?.etiqueta ?: "Sin dato")
+    FilaDato("Síntomas", if (e.sintomas.isEmpty()) "Ninguno indicado" else e.sintomas.joinToString(", "))
+    FilaDato("Nivel de conciencia", etiquetaConciencia(v.conciencia))
+    FilaDato("Pulso", v.frecuencia_cardiaca?.let { "$it lat/min" } ?: "No registrado")
+    FilaDato("Respiración", v.frecuencia_respiratoria?.let { "$it res/min" } ?: "No registrada")
+    FilaDato(
+        "Presión arterial",
+        if (v.presion_sistolica != null && v.presion_diastolica != null) "${v.presion_sistolica}/${v.presion_diastolica} mmHg"
+        else "No registrada"
+    )
+    FilaDato("Saturación de oxígeno", v.saturacion_oxigeno?.let { "$it %" } ?: "No registrada")
+    FilaDato("Temperatura", v.temperatura?.let { "$it °C" } ?: "No registrada")
+    if (!e.notas.isNullOrBlank()) FilaDato("Notas", e.notas)
+    Text(
+        "Evaluado ${formatoIso(e.evaluado_en)}${e.evaluado_por_nombre?.let { " por $it" } ?: ""}",
+        color = TextoSuave,
+        fontSize = 11.sp
+    )
 }

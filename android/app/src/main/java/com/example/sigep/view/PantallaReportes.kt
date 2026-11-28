@@ -248,14 +248,14 @@ private fun resumenSituacion(repo: RepositorioSigep): String {
         appendLine("- Nuevos en 24 h: ${pacientes.count { ahora - it.creadoEn <= DIA_MS }}")
         appendLine(
             "- Triage (activos): " +
-                Triage.entries.joinToString(" · ") { t -> "${t.codigo} ${activos.count { it.triage == t }}" }
+                Triage.entries.joinToString(" · ") { t -> "${t.valor.replaceFirstChar { c -> c.uppercase() }} ${activos.count { it.nivel == t }}" }
         )
-        appendLine("- Sin condición registrada: ${pacientes.count { it.condicion == null }}")
-        appendLine("- Requieren traslado: ${activos.count { it.condicion?.requiereTraslado == true }}")
+        appendLine("- Sin evaluación clínica: ${pacientes.count { it.triage == null }}")
+        appendLine("- Requieren traslado: ${activos.count { it.triage?.requiereTraslado == true }}")
         appendLine()
         appendLine("SÍNDROMES (casos activos)")
         Sindrome.entries.forEach { s ->
-            appendLine("- ${s.etiqueta}: ${activos.count { it.condicion?.sindrome == s }}")
+            appendLine("- ${s.etiqueta}: ${activos.count { it.triage?.sindrome == s }}")
         }
         appendLine()
         appendLine("ALERTAS")

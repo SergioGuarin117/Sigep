@@ -57,7 +57,6 @@ class BorradorPaciente {
     var apellido by mutableStateOf("")
     var tipoSangre by mutableStateOf("")
     var observaciones by mutableStateOf("")
-    var triage by mutableStateOf<Triage?>(null)
     var confirmado by mutableStateOf(false)
 
     fun limpiar() {
@@ -67,7 +66,6 @@ class BorradorPaciente {
         apellido = ""
         tipoSangre = ""
         observaciones = ""
-        triage = null
         confirmado = false
     }
 }
@@ -201,9 +199,7 @@ private fun PasoDatos(borrador: BorradorPaciente, onCancelar: () -> Unit) {
 
 @Composable
 private fun PasoObservaciones(borrador: BorradorPaciente) {
-    var intento by remember { mutableStateOf(false) }
-
-    Text("Observaciones y triage", color = TextoOscuro, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    Text("Observaciones", color = TextoOscuro, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     Text(
         "${borrador.nombre} ${borrador.apellido} · ${borrador.tipoSangre} · Centro de acogida ${borrador.centro}",
         color = TextoSuave,
@@ -219,60 +215,9 @@ private fun PasoObservaciones(borrador: BorradorPaciente) {
         ayuda = "Escribe solo información relevante; no escribas diagnósticos."
     )
 
-    Column {
-        EtiquetaCampo("Prioridad de triage", true)
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Triage.entries.forEach { t ->
-                val seleccionado = borrador.triage == t
-                val forma = RoundedCornerShape(12.dp)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(forma)
-                        .background(if (seleccionado) t.fondo else Color.White)
-                        .border(if (seleccionado) 2.dp else 1.dp, if (seleccionado) t.color else BordeSuave, forma)
-                        .clickable { borrador.triage = t }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(t.fondo),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(t.codigo, color = t.color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(t.etiqueta, color = TextoOscuro, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text(t.descripcion, color = TextoSuave, fontSize = 12.sp)
-                    }
-                    RadioButton(
-                        selected = seleccionado,
-                        onClick = null,
-                        colors = RadioButtonDefaults.colors(selectedColor = t.color)
-                    )
-                }
-            }
-        }
-        if (intento && borrador.triage == null) {
-            Text(
-                "Selecciona una prioridad de triage",
-                color = RojoSigep,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
-            )
-        }
-    }
+    BannerInfo("El nivel de triage se calcula al registrar la evaluación clínica, después del registro. Lo sugiere el sistema y lo confirma un médico.")
 
-    BannerInfo("Prioridad asignada por el personal responsable. No es un diagnóstico ni una evaluación automática.")
-
-    BotonPrimario("Revisar registro →", onClick = {
-        intento = true
-        if (borrador.triage != null) borrador.paso = 3
-    })
+    BotonPrimario("Revisar registro →", onClick = { borrador.paso = 3 })
     BotonTextoCentrado("Volver a datos", { borrador.paso = 1 })
 }
 
@@ -284,7 +229,6 @@ private fun PasoResumen(
     repo: RepositorioSigep,
     onRegistrado: (Paciente) -> Unit
 ) {
-    val triage = borrador.triage
     val alcance = rememberCoroutineScope()
     var enviando by remember { mutableStateOf(false) }
     var errorEnvio by remember { mutableStateOf<String?>(null) }
@@ -307,24 +251,6 @@ private fun PasoResumen(
             )
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = BordeSuave)
             FilaDato("Centro de acogida", "${borrador.centro} · San Miguel")
-        }
-    }
-
-    if (triage != null) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(triage.fondo)
-                .padding(12.dp)
-        ) {
-            Text(
-                "Triage ${triage.codigo} · ${triage.etiqueta}",
-                color = triage.color,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp
-            )
-            Text(triage.mensaje, color = triage.color, fontSize = 12.sp)
         }
     }
 
@@ -351,9 +277,9 @@ private fun PasoResumen(
 
     BotonPrimario(
         if (enviando) "Registrando…" else "Confirmar registro ✓",
-        enabled = borrador.confirmado && triage != null && !enviando,
+        enabled = borrador.confirmado && !enviando,
         onClick = {
-            if (triage != null) {
+            run {
                 alcance.launch {
                     enviando = true
                     errorEnvio = null
@@ -363,8 +289,7 @@ private fun PasoResumen(
                         apellido = borrador.apellido,
                         tipoSangre = borrador.tipoSangre,
                         centro = borrador.centro,
-                        observaciones = borrador.observaciones,
-                        triage = triage
+                        observaciones = borrador.observaciones
                     )
                     when (resultado) {
                         is ResultadoPaciente.Exito -> {
@@ -406,25 +331,50 @@ fun FormularioCondicion(
     onGuardado: () -> Unit,
     onDespues: () -> Unit
 ) {
-    val previa = paciente.condicion
+    val previa = paciente.triage
+    val alcance = rememberCoroutineScope()
 
     var sindrome by remember { mutableStateOf(previa?.sindrome) }
-    var sintomas by remember { mutableStateOf(previa?.sintomas ?: emptyList()) }
-    var temperatura by remember { mutableStateOf(previa?.temperatura?.toString() ?: "") }
-    var conciencia by remember { mutableStateOf(previa?.conciencia ?: NIVELES_CONCIENCIA.first()) }
+    var sintomas by remember { mutableStateOf(emptyList<String>()) }
+    var temperatura by remember { mutableStateOf("") }
+    var frecCardiaca by remember { mutableStateOf("") }
+    var frecResp by remember { mutableStateOf("") }
+    var presionSis by remember { mutableStateOf("") }
+    var presionDia by remember { mutableStateOf("") }
+    var saturacion by remember { mutableStateOf("") }
+    var conciencia by remember { mutableStateOf(NIVELES_CONCIENCIA.first()) }
     var requiereTraslado by remember { mutableStateOf(previa?.requiereTraslado ?: false) }
-    var gestante by remember { mutableStateOf(previa?.gestante ?: false) }
-    var condicionesPrevias by remember { mutableStateOf(previa?.condicionesPrevias ?: "") }
+    var gestante by remember { mutableStateOf(paciente.gestante) }
+    var condicionesPrevias by remember { mutableStateOf(paciente.condicionesPrevias) }
     var estado by remember { mutableStateOf(previa?.estado) }
-    var notas by remember { mutableStateOf(previa?.notas ?: "") }
+    var notas by remember { mutableStateOf("") }
     var intento by remember { mutableStateOf(false) }
+    var enviando by remember { mutableStateOf(false) }
+    var errorEnvio by remember { mutableStateOf<String?>(null) }
 
     val tempNumero = temperatura.replace(',', '.').toDoubleOrNull()
     val errorTemperatura = when {
         temperatura.isBlank() -> null
-        tempNumero == null || tempNumero < 30.0 || tempNumero > 45.0 -> "Ingresa un valor entre 30 y 45 °C"
+        tempNumero == null || tempNumero < 25.0 || tempNumero > 45.0 -> "Ingresa un valor entre 25 y 45 °C"
         else -> null
     }
+    val fc = frecCardiaca.toIntOrNull()
+    val fr = frecResp.toIntOrNull()
+    val pas = presionSis.toIntOrNull()
+    val pad = presionDia.toIntOrNull()
+    val spo2 = saturacion.toIntOrNull()
+    fun errorEntero(texto: String, valor: Int?, max: Int): String? = when {
+        texto.isBlank() -> null
+        valor == null || valor < 0 || valor > max -> "Ingresa un valor entre 0 y $max"
+        else -> null
+    }
+    val errorFc = errorEntero(frecCardiaca, fc, 300)
+    val errorFr = errorEntero(frecResp, fr, 100)
+    val errorPas = errorEntero(presionSis, pas, 300)
+    val errorPad = errorEntero(presionDia, pad, 200)
+        ?: if (pad != null && pas != null && pad > pas) "No puede superar la sistólica" else null
+    val errorSpo2 = errorEntero(saturacion, spo2, 100)
+    val hayErrores = listOf(errorTemperatura, errorFc, errorFr, errorPas, errorPad, errorSpo2).any { it != null }
 
     Column(Modifier.fillMaxSize()) {
         BarraContexto()
@@ -444,9 +394,9 @@ fun FormularioCondicion(
                 )
             }
 
-            Text("¿En qué condición está?", color = TextoOscuro, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("Evaluación clínica", color = TextoOscuro, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                EtiquetaTriage(paciente.triage)
+                paciente.nivel?.let { EtiquetaTriage(it) }
                 Text(
                     "${paciente.nombreCompleto} · ${paciente.centro}",
                     color = TextoSuave,
@@ -487,14 +437,40 @@ fun FormularioCondicion(
                 }
             }
 
-            CampoFormulario(
-                etiqueta = "Temperatura (°C)",
-                valor = temperatura,
-                onCambio = { temperatura = it },
-                placeholder = "Ej. 37.5",
-                teclado = KeyboardType.Decimal,
-                error = if (errorTemperatura != null) errorTemperatura else null,
-                ayuda = "Opcional."
+            Text("Signos vitales", color = TextoOscuro, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.weight(1f)) {
+                    CampoFormulario("Pulso (lat/min)", frecCardiaca, { frecCardiaca = it.filter(Char::isDigit).take(3) },
+                        placeholder = "Ej. 80", teclado = KeyboardType.Number, error = errorFc)
+                }
+                Box(Modifier.weight(1f)) {
+                    CampoFormulario("Respiración (res/min)", frecResp, { frecResp = it.filter(Char::isDigit).take(3) },
+                        placeholder = "Ej. 16", teclado = KeyboardType.Number, error = errorFr)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.weight(1f)) {
+                    CampoFormulario("Presión sistólica", presionSis, { presionSis = it.filter(Char::isDigit).take(3) },
+                        placeholder = "Ej. 120", teclado = KeyboardType.Number, error = errorPas)
+                }
+                Box(Modifier.weight(1f)) {
+                    CampoFormulario("Presión diastólica", presionDia, { presionDia = it.filter(Char::isDigit).take(3) },
+                        placeholder = "Ej. 80", teclado = KeyboardType.Number, error = errorPad)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.weight(1f)) {
+                    CampoFormulario("Saturación O₂ (%)", saturacion, { saturacion = it.filter(Char::isDigit).take(3) },
+                        placeholder = "Ej. 96", teclado = KeyboardType.Number, error = errorSpo2)
+                }
+                Box(Modifier.weight(1f)) {
+                    CampoFormulario("Temperatura (°C)", temperatura, { temperatura = it },
+                        placeholder = "Ej. 37.5", teclado = KeyboardType.Decimal, error = errorTemperatura)
+                }
+            }
+            Text(
+                "Todos son opcionales; con menos datos la sugerencia es menos confiable.",
+                color = TextoSuave, fontSize = 12.sp
             )
 
             // Conciencia
@@ -552,30 +528,38 @@ fun FormularioCondicion(
                 ayuda = "Opcional. No escribas diagnósticos."
             )
 
-            BotonPrimario("Guardar condición ✓", onClick = {
+            errorEnvio?.let { Text(it, color = RojoSigep, fontSize = 13.sp) }
+
+            BotonPrimario(if (enviando) "Guardando…" else "Guardar evaluación ✓", enabled = !enviando, onClick = {
                 intento = true
-                val s = sindrome
                 val e = estado
-                if (s != null && e != null && errorTemperatura == null) {
-                    repo.guardarCondicion(
-                        paciente.id,
-                        Condicion(
-                            sindrome = s,
-                            sintomas = sintomas,
+                if (sindrome != null && e != null && !hayErrores) {
+                    alcance.launch {
+                        enviando = true
+                        errorEnvio = null
+                        val cuerpo = EvaluacionNueva(
+                            frecuencia_cardiaca = fc,
+                            frecuencia_respiratoria = fr,
+                            presion_sistolica = pas,
+                            presion_diastolica = pad,
                             temperatura = tempNumero,
-                            conciencia = conciencia,
-                            requiereTraslado = requiereTraslado,
-                            gestante = gestante,
-                            condicionesPrevias = condicionesPrevias.trim(),
-                            estado = e,
-                            notas = notas.trim(),
-                            actualizadoEn = System.currentTimeMillis()
+                            saturacion_oxigeno = spo2,
+                            conciencia = VALORES_CONCIENCIA[NIVELES_CONCIENCIA.indexOf(conciencia)],
+                            sintomas = sintomas,
+                            sindrome = sindrome?.valor,
+                            estado_clinico = e.valor,
+                            requiere_traslado = requiereTraslado,
+                            notas = notas.trim().ifBlank { null }
                         )
-                    )
-                    onGuardado()
+                        when (val r = TriageController.evaluar(repo, paciente, cuerpo, gestante, condicionesPrevias)) {
+                            is ResultadoTriage.Exito -> onGuardado()
+                            is ResultadoTriage.Falla -> errorEnvio = r.mensaje
+                        }
+                        enviando = false
+                    }
                 }
             })
-            BotonTextoCentrado(if (esNuevo) "Completar después" else "Cancelar", onDespues)
+            BotonTextoCentrado(if (esNuevo) "Evaluar después" else "Cancelar", { if (!enviando) onDespues() })
         }
     }
 }
