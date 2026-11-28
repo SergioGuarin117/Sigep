@@ -2,6 +2,7 @@
 const triageModel = require("../models/triageModel");
 const pacienteModel = require("../models/pacienteModel");
 const { evaluarTriage } = require("../services/triageReglas");
+const { predecirTriage, estadoServicio } = require("../services/iaTriage");
 const { presentarEvaluacion, presentarPendiente } = require("../views/triageView");
 
 // Crea una evaluacion nueva para el paciente y calcula la sugerencia con las reglas.
@@ -19,12 +20,16 @@ async function evaluar(req, res) {
       gestante: paciente.gestante,
     });
 
+    // La IA es un segundo concepto, aparte de las reglas: si falla, la evaluacion se guarda igual.
+    const ia = await predecirTriage(req.datos, paciente);
+
     const evaluacion = await triageModel.crear({
       pacienteId: paciente.id,
       albergueId: paciente.albergue_id,
       usuarioId: req.usuario.id,
       datos: req.datos,
       sugerencia,
+      ia,
     });
     res.status(201).json({
       mensaje: "Evaluación registrada. Un médico debe confirmar el nivel.",
@@ -34,6 +39,11 @@ async function evaluar(req, res) {
     console.error("Error al evaluar triage:", error);
     res.status(500).json({ error: "No se pudo registrar la evaluación" });
   }
+}
+
+// Estado del servicio de IA (para saber si las evaluaciones nuevas traeran segunda opinion).
+async function estadoIA(req, res) {
+  res.json(await estadoServicio());
 }
 
 async function historial(req, res) {
@@ -82,4 +92,4 @@ async function confirmar(req, res) {
   }
 }
 
-module.exports = { evaluar, historial, pendientes, confirmar };
+module.exports = { evaluar, estadoIA, historial, pendientes, confirmar };

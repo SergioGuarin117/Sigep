@@ -143,6 +143,24 @@ Respuesta (`evaluacion`): `signos_vitales`, `sintomas`, `sugerencia` (`nivel`, `
 (`nivel_final`, quién y cuándo confirmó). `GET /api/pacientes` y `GET /api/pacientes/:id` incluyen `triage`
 (`nivel_sugerido`, `nivel_final`, `nivel_vigente`, `confirmado`, `sindrome`, `estado_clinico`, `requiere_traslado`) y la lista admite `?nivel=verde|amarillo|rojo|negro`.
 
+### Segunda opinión de la IA (`sugerencia_ia`)
+
+Al registrar una evaluación, el backend consulta el servicio de IA (`ai-service`, ver `docs/ia.md`) y guarda su
+respuesta dentro de `explicacion_ia` (sin cambiar la tabla). Cada evaluación trae `sugerencia_ia`:
+
+| Campo | Significado |
+|---|---|
+| `disponible` | `true` si la IA respondió; si no, `false` con `motivo` (`desactivada`, `sin_conexion`, `tiempo_agotado`, `error_servicio`, `respuesta_invalida` o `no_evaluada` en evaluaciones anteriores) |
+| `nivel`, `probabilidades`, `puntaje` | Nivel sugerido por el modelo, probabilidad de cada nivel y riesgo 0-100 |
+| `confianza` | `alta`, `media` o `baja` (baja si hay menos de 2 signos vitales) |
+| `factores` | Variables que más pesaron: `variable`, `descripcion`, `impacto` |
+| `coincide_con_reglas` | `false` si la IA y las reglas sugieren niveles distintos: conviene mirarlo con más atención |
+
+Las reglas siguen siendo la sugerencia principal y el **médico confirma**; si la IA falla, la evaluación se guarda igual.
+Al servicio solo viajan datos clínicos (signos vitales, síntomas, edad, gestación, estado y traslado): nunca nombres,
+documentos, notas ni identificadores. `GET /api/triage/ia/estado` (médico, admin. de albergue, coordinador) indica si
+la IA está disponible y con qué modelo y métricas.
+
 ### Reglas (`reglas-v1`)
 
 El nivel es el más grave de las reglas que se activan; los umbrales cambian en menores de 12 años.
