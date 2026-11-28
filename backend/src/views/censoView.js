@@ -56,6 +56,9 @@ function presentarTriageVigente(p) {
     nivel_vigente: p.triage_final || p.triage_sugerido,
     confirmado: p.triage_final !== null,
     evaluado_en: p.triage_evaluado_en,
+    sindrome: p.triage_sindrome,
+    estado_clinico: p.triage_estado_clinico,
+    requiere_traslado: p.triage_requiere_traslado,
   };
 }
 

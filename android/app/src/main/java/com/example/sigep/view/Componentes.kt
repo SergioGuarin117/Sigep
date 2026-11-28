@@ -75,6 +75,9 @@ fun formatoHora(ms: Long): String = SimpleDateFormat("HH:mm", LOCALE_ES).format(
 fun formatoFechaCorta(ms: Long): String = SimpleDateFormat("d MMM", LOCALE_ES).format(Date(ms))
 fun formatoFechaLarga(ms: Long): String = SimpleDateFormat("d MMM yyyy · HH:mm", LOCALE_ES).format(Date(ms))
 
+/** Fecha ISO del servidor en formato legible; "Sin fecha" si falta. */
+fun formatoIso(iso: String?): String = milisDesdeIso(iso)?.let { formatoFechaHora(it) } ?: "Sin fecha"
+
 fun hace(ms: Long): String {
     val minutos = ((System.currentTimeMillis() - ms) / 60_000L).coerceAtLeast(0)
     return when {
@@ -294,7 +297,7 @@ fun EtiquetaTriage(triage: Triage) {
             .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Text(
-            "${triage.codigo} · ${triage.etiqueta}",
+            triage.titulo,
             color = triage.color,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold

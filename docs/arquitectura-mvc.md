@@ -35,6 +35,8 @@ sigep/
 │   ├── Sesion.kt            #   enum Rol (5 roles) y SesionUsuario
 │   ├── AlmacenSesion.kt     #   guarda la sesion en el almacenamiento privado de la app
 │   ├── AuthApi.kt           #   contrato Retrofit + DTOs de autenticacion
+│   ├── CensoApi.kt          #   albergues y pacientes (DTOs + contrato Retrofit)
+│   ├── TriageApi.kt         #   evaluaciones de triage y confirmacion del medico
 │   ├── RetrofitClient.kt    #   cliente HTTP (agrega Authorization: Bearer y detecta 401)
 │   └── RepositorioSigep.kt  #   datos de la app
 ├── view/                    # interfaz (Jetpack Compose)
@@ -44,6 +46,8 @@ sigep/
 │   └── theme/               #   colores, tipografia, tema
 └── controller/              # logica que conecta vista y modelo
     ├── AuthController.kt    #   login y registro (llama a la API)
+    ├── CensoController.kt   #   albergues y pacientes (sincroniza y registra)
+    ├── TriageController.kt  #   evaluar, historial y confirmar el nivel (medico)
     ├── SesionController.kt  #   quien esta conectado y con que rol (StateFlow)
     └── Navegacion.kt        #   pestanas (Pestana) y rutas (RutaCasos)
 ```
@@ -53,6 +57,15 @@ Reglas de dependencia: `model` no conoce a `view` ni a `controller`;
 
 Pendiente en ramas siguientes: mover la logica de estado que aun vive dentro
 de algunas pantallas (casos, alertas, equipos) a controladores propios.
+
+## Triage en la app Android
+
+- El nivel de triage (**Rojo, Amarillo, Verde, Negro**) ya no se elige a mano: lo **sugiere el servidor**
+  al guardar una evaluación clínica (signos vitales, síntomas, estado) y lo **confirma un médico de triage**.
+- Mientras no se confirma, la app muestra «Nivel sugerido» y «Pendiente de confirmación médica»; el detalle
+  del paciente trae los motivos de la sugerencia, el puntaje, los datos que faltaron y el historial.
+- La lista de Casos filtra por nivel, «Sin evaluar» y «Por confirmar» (estos últimos de más a menos grave).
+- La condición clínica ya no se guarda en el dispositivo: vive en el servidor (`evaluaciones_triage`).
 
 ## Sesión en la app Android
 

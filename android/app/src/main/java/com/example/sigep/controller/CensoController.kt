@@ -8,7 +8,6 @@ import com.example.sigep.model.PacienteDto
 import com.example.sigep.model.PacienteNuevo
 import com.example.sigep.model.RepositorioSigep
 import com.example.sigep.model.RetrofitClient
-import com.example.sigep.model.Triage
 import org.json.JSONObject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -80,15 +79,14 @@ object CensoController {
         }
     }
 
-    /** Registra al paciente en el servidor. Solo si el servidor acepta, queda en el dispositivo. */
+    /** Registra al paciente en el servidor (el triage se evalúa después). Solo si el servidor acepta, queda en el dispositivo. */
     suspend fun registrarPaciente(
         repo: RepositorioSigep,
         nombre: String,
         apellido: String,
         tipoSangre: String,
         centro: String,
-        observaciones: String,
-        triage: Triage
+        observaciones: String
     ): ResultadoPaciente {
         val albergue = AlberguesCache.porNombre(centro)
             ?: return ResultadoPaciente.Falla(
@@ -105,7 +103,7 @@ object CensoController {
             val respuesta = RetrofitClient.pacientesApi.crear(cuerpo)
             val dto = respuesta.body()?.paciente
             if (respuesta.isSuccessful && dto != null) {
-                val paciente = repo.agregarDesdeServidor(dto, triage)
+                val paciente = repo.agregarDesdeServidor(dto)
                 sincronizarAlbergues(repo) // la ocupacion del albergue cambio
                 ResultadoPaciente.Exito(paciente)
             } else {
@@ -139,7 +137,7 @@ object CensoController {
         }
     }
 
-    private fun mensajeDeError(cuerpo: String?, codigo: Int): String {
+    internal fun mensajeDeError(cuerpo: String?, codigo: Int): String {
         val texto = try {
             cuerpo?.let { JSONObject(it).optString("error") }
         } catch (e: Exception) {

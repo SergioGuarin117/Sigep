@@ -185,6 +185,7 @@ fun PantallaPrincipal(
 
                 Pestana.CASOS -> PantallaCasos(
                     repo = repo,
+                    rol = rol,
                     ruta = ruta,
                     onRuta = { ruta = it },
                     borrador = borrador,

@@ -24,7 +24,7 @@ class RepositorioSigep(contexto: Context) {
     init {
         AlberguesCache.lista.clear()
         AlberguesCache.lista.addAll(leer("albergues", object : TypeToken<List<AlbergueDto>>() {}))
-        pacientes.addAll(leer("pacientes", object : TypeToken<List<Paciente>>() {}))
+        pacientes.addAll(leer("pacientes_v2", object : TypeToken<List<Paciente>>() {}))
         alertas.addAll(leer("alertas", object : TypeToken<List<Alerta>>() {}))
         equipos.addAll(leer("equipos", object : TypeToken<List<Equipo>>() {}))
 
@@ -42,7 +42,7 @@ class RepositorioSigep(contexto: Context) {
         /** Quita del dispositivo los datos de pacientes (se usa al cerrar sesión). */
         fun borrarDatosPersonales(contexto: Context?) {
             contexto?.getSharedPreferences("sigep_datos", Context.MODE_PRIVATE)
-                ?.edit()?.remove("pacientes")?.apply()
+                ?.edit()?.remove("pacientes_v2")?.remove("pacientes")?.apply()
         }
     }
 
@@ -56,7 +56,7 @@ class RepositorioSigep(contexto: Context) {
 
     // ---------- Pacientes ----------
 
-    /** Reemplaza la lista por la del servidor; el triage y la condicion (aun locales) se conservan por id. */
+    /** Reemplaza la lista por la del servidor (que incluye el resumen de triage de cada paciente). */
     fun reemplazarPacientes(remotos: List<PacienteDto>) {
         val previos = pacientes.associateBy { it.id }
         val nuevos = remotos.map { aPaciente(it, previos[it.id]) }
@@ -65,9 +65,9 @@ class RepositorioSigep(contexto: Context) {
         guardarPacientes()
     }
 
-    /** Agrega un paciente recien registrado en el servidor (con el triage calculado en la app). */
-    fun agregarDesdeServidor(dto: PacienteDto, triage: Triage): Paciente {
-        val paciente = aPaciente(dto, null).copy(triage = triage)
+    /** Agrega un paciente recien registrado en el servidor (aun sin evaluacion de triage). */
+    fun agregarDesdeServidor(dto: PacienteDto): Paciente {
+        val paciente = aPaciente(dto, null)
         pacientes.removeAll { it.id == paciente.id }
         pacientes.add(0, paciente)
         guardarPacientes()
@@ -84,28 +84,46 @@ class RepositorioSigep(contexto: Context) {
         tipoSangre = dto.tipo_sangre ?: "Desconocido",
         centro = AlberguesCache.porId(dto.albergue_id)?.nombre ?: "Sin albergue",
         observaciones = dto.observaciones.orEmpty(),
-        // El triage y la condicion todavia no viven en el servidor (llegan en la rama de triage).
-        triage = previo?.triage ?: Triage.P3,
         creadoEn = milisDesdeIso(dto.creado_en) ?: previo?.creadoEn ?: System.currentTimeMillis(),
         cerrado = dto.cerrado,
-        condicion = previo?.condicion
+        gestante = dto.gestante,
+        condicionesPrevias = dto.condiciones_previas.orEmpty(),
+        triage = dto.triage?.let { aResumen(it) }
     )
 
-    private fun milisDesdeIso(texto: String?): Long? {
-        if (texto == null || texto.length < 19) return null
-        return try {
-            val formato = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            formato.timeZone = TimeZone.getTimeZone("UTC")
-            formato.parse(texto.substring(0, 19))?.time
-        } catch (e: Exception) {
-            null
-        }
+    private fun aResumen(t: TriageResumenDto): ResumenTriage? {
+        val sugerido = Triage.desdeValor(t.nivel_sugerido) ?: return null
+        return ResumenTriage(
+            evaluacionId = t.evaluacion_id,
+            sugerido = sugerido,
+            confirmado = Triage.desdeValor(t.nivel_final),
+            sindrome = Sindrome.desdeValor(t.sindrome),
+            estado = EstadoClinico.desdeValor(t.estado_clinico),
+            requiereTraslado = t.requiere_traslado,
+            evaluadoEn = milisDesdeIso(t.evaluado_en) ?: System.currentTimeMillis()
+        )
     }
 
-    fun pacientePorId(id: Long): Paciente? = pacientes.firstOrNull { it.id == id }
+    /** Guarda el resultado de una evaluacion o confirmacion hecha en el servidor. */
+    fun fijarEvaluacion(id: Long, e: EvaluacionDto, gestante: Boolean? = null, previas: String? = null) =
+        actualizarPaciente(id) { p ->
+            val sugerido = Triage.desdeValor(e.sugerencia.nivel)
+            p.copy(
+                gestante = gestante ?: p.gestante,
+                condicionesPrevias = previas ?: p.condicionesPrevias,
+                triage = if (sugerido == null) p.triage else ResumenTriage(
+                    evaluacionId = e.id,
+                    sugerido = sugerido,
+                    confirmado = Triage.desdeValor(e.decision?.nivel_final),
+                    sindrome = Sindrome.desdeValor(e.sindrome),
+                    estado = EstadoClinico.desdeValor(e.estado_clinico),
+                    requiereTraslado = e.requiere_traslado,
+                    evaluadoEn = milisDesdeIso(e.evaluado_en) ?: System.currentTimeMillis()
+                )
+            )
+        }
 
-    fun guardarCondicion(id: Long, condicion: Condicion) =
-        actualizarPaciente(id) { it.copy(condicion = condicion) }
+    fun pacientePorId(id: Long): Paciente? = pacientes.firstOrNull { it.id == id }
 
     private fun actualizarPaciente(id: Long, cambio: (Paciente) -> Paciente) {
         val i = pacientes.indexOfFirst { it.id == id }
@@ -167,7 +185,7 @@ class RepositorioSigep(contexto: Context) {
     }
 
     private fun guardarPacientes() =
-        prefs.edit().putString("pacientes", gson.toJson(pacientes.toList())).apply()
+        prefs.edit().putString("pacientes_v2", gson.toJson(pacientes.toList())).apply()
 
     private fun guardarAlertas() =
         prefs.edit().putString("alertas", gson.toJson(alertas.toList())).apply()
@@ -202,4 +220,16 @@ class RepositorioSigep(contexto: Context) {
         Equipo("E-07", "Reserva operativa", 3, BASE_MUNICIPAL, EstadoEquipo.DISPONIBLE),
         Equipo("E-08", "Reserva operativa", 3, BASE_MUNICIPAL, EstadoEquipo.DISPONIBLE)
     )
+}
+
+/** Convierte una fecha ISO del servidor (UTC) a milisegundos; null si no se puede leer. */
+fun milisDesdeIso(texto: String?): Long? {
+    if (texto == null || texto.length < 19) return null
+    return try {
+        val formato = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        formato.timeZone = TimeZone.getTimeZone("UTC")
+        formato.parse(texto.substring(0, 19))?.time
+    } catch (e: Exception) {
+        null
+    }
 }

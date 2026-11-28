@@ -10,13 +10,16 @@ const COLUMNAS = `
   DATE_PART('year', AGE(p.fecha_nacimiento))::int AS edad,
   p.sexo, p.tipo_sangre, p.telefono, p.gestante, p.condiciones_previas, p.observaciones,
   p.cerrado, p.datos_ocr, p.registrado_por, p.creado_en, p.actualizado_en,
-  t.triage_id, t.triage_sugerido, t.triage_final, t.triage_evaluado_en`;
+  t.triage_id, t.triage_sugerido, t.triage_final, t.triage_evaluado_en,
+  t.triage_sindrome, t.triage_estado_clinico, t.triage_requiere_traslado`;
 
 // Ultima evaluacion de triage de cada paciente (si tiene alguna).
 const UNION_TRIAGE = `
   LEFT JOIN LATERAL (
     SELECT e.id AS triage_id, e.nivel_sugerido_ia AS triage_sugerido,
-           e.nivel_final AS triage_final, e.evaluado_en AS triage_evaluado_en
+           e.nivel_final AS triage_final, e.evaluado_en AS triage_evaluado_en,
+           e.sindrome AS triage_sindrome, e.estado_clinico AS triage_estado_clinico,
+           e.requiere_traslado AS triage_requiere_traslado
     FROM evaluaciones_triage e
     WHERE e.paciente_id = p.id
     ORDER BY e.evaluado_en DESC, e.id DESC
